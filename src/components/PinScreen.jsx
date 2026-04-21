@@ -76,7 +76,6 @@ export default function PinScreen({ employees, onLogin }) {
         </div>
 
         <p style={{ color:'#222', fontSize:10, marginTop:24, letterSpacing:1 }}>
-          PIN OWNER: 0000 &nbsp;|&nbsp; KARYAWAN: PIN MASING-MASING
         </p>
       </div>
     </div>
