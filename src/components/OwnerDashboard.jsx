@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts'
-import { useAttendance } from '../hooks/useData'
+import { useAttendance, useEmployees } from '../hooks/useData'
 import { todayStr, weekRange, monthRange, fmtDate, fmtDay, fmtRupiah, hitungGaji, workdaysInRange } from '../lib/utils'
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
@@ -384,8 +384,6 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
 }
 
 // ─── Setting Tab ─────────────────────────────────────────────────────────────
-import { useEmployees } from '../hooks/useData'
-
 function SettingTab({ employees, onRefresh }) {
   const { upsertEmployee, deleteEmployee } = useEmployees()
   const [editId, setEditId]   = useState(null)
