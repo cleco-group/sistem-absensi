@@ -416,8 +416,9 @@ function SettingTab({ employees, onRefresh }) {
     catch(e) { alert(e.message) }
   }
 
-  const F = ({ label, field, type='text', opts }) => (
-    <div style={{ marginBottom:10 }}>
+  // PERBAIKAN: Diubah menjadi fungsi render biasa, bukan komponen React
+  const renderField = ({ label, field, type='text', opts }) => (
+    <div key={field} style={{ marginBottom:10 }}>
       <label style={{ color:'#555', fontSize:10, display:'block', marginBottom:4, letterSpacing:1 }}>{label}</label>
       {opts ? (
         <select value={form[field]||''} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}
@@ -431,23 +432,24 @@ function SettingTab({ employees, onRefresh }) {
     </div>
   )
 
-  const EmpForm = () => (
+  // PERBAIKAN: Diubah menjadi fungsi render biasa
+  const renderEmpForm = () => (
     <div style={{ background:'#070718', border:'1px solid #4af0c8', borderRadius:14, padding:16, marginBottom:16 }}>
       <p style={{ color:'#4af0c8', fontSize:10, letterSpacing:2, marginBottom:14 }}>{showNew ? 'KARYAWAN BARU' : 'EDIT KARYAWAN'}</p>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-        <div style={{ gridColumn:'1/-1' }}><F label="NAMA LENGKAP" field="name" /></div>
-        <F label="KODE (cth: E004)" field="emp_code" />
-        <F label="JABATAN" field="role" />
-        <F label="JAM MASUK" field="jam_masuk" type="time" />
-        <F label="JAM PULANG" field="jam_pulang" type="time" />
-        <F label="PIN LOGIN" field="pin" />
-        <F label="TIPE GAJI" field="tipe_gaji" opts={[{v:'bulanan',l:'Bulanan'},{v:'harian',l:'Harian per hari hadir'}]} />
+        <div style={{ gridColumn:'1/-1' }}>{renderField({ label:"NAMA LENGKAP", field:"name" })}</div>
+        {renderField({ label:"KODE (cth: E004)", field:"emp_code" })}
+        {renderField({ label:"JABATAN", field:"role" })}
+        {renderField({ label:"JAM MASUK", field:"jam_masuk", type:"time" })}
+        {renderField({ label:"JAM PULANG", field:"jam_pulang", type:"time" })}
+        {renderField({ label:"PIN LOGIN", field:"pin" })}
+        {renderField({ label:"TIPE GAJI", field:"tipe_gaji", opts:[{v:'bulanan',l:'Bulanan'},{v:'harian',l:'Harian per hari hadir'}] })}
         <div style={{ gridColumn:'1/-1' }}>
-          <F label={form.tipe_gaji==='harian'?'GAJI PER HARI (Rp)':'GAJI POKOK BULANAN (Rp)'} field="gaji_pokok" type="number" />
+          {renderField({ label:form.tipe_gaji==='harian'?'GAJI PER HARI (Rp)':'GAJI POKOK BULANAN (Rp)', field:"gaji_pokok", type:"number" })}
         </div>
-        <F label="POTONGAN PER HARI ABSEN (Rp)" field="potongan_absen" type="number" />
-        <F label="POTONGAN PER KETERLAMBATAN (Rp)" field="potongan_telat" type="number" />
-        <div style={{ gridColumn:'1/-1' }}><F label="BONUS PER HARI TEPAT WAKTU (Rp)" field="bonus_rajin" type="number" /></div>
+        {renderField({ label:"POTONGAN PER HARI ABSEN (Rp)", field:"potongan_absen", type:"number" })}
+        {renderField({ label:"POTONGAN PER KETERLAMBATAN (Rp)", field:"potongan_telat", type:"number" })}
+        <div style={{ gridColumn:'1/-1' }}>{renderField({ label:"BONUS PER HARI TEPAT WAKTU (Rp)", field:"bonus_rajin", type:"number" })}</div>
       </div>
       {err && <p style={{ color:'#ff5555', fontSize:11, marginBottom:10 }}>{err}</p>}
       <div style={{ display:'flex', gap:10, marginTop:4 }}>
@@ -458,6 +460,53 @@ function SettingTab({ employees, onRefresh }) {
       </div>
     </div>
   )
+
+  return (
+    <>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+        <p style={{ color:'#4af0c8', fontSize:10, letterSpacing:2, margin:0 }}>DATA KARYAWAN ({employees.length})</p>
+        {!showNew && !editId && (
+          <button onClick={startNew} style={{ background:'#4af0c8', color:'#021a14', border:'none', borderRadius:8, padding:'7px 14px', cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700, letterSpacing:1 }}>+ TAMBAH</button>
+        )}
+      </div>
+
+      {/* PERBAIKAN: Dipanggil sebagai eksekusi fungsi, bukan sebagai tag <Komponen /> */}
+      {showNew && renderEmpForm()}
+
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {employees.map(emp => (
+          <div key={emp.id}>
+            {/* PERBAIKAN: Dipanggil sebagai eksekusi fungsi */}
+            {editId === emp.id ? renderEmpForm() : (
+              <div style={{ background:'#070718', border:'1px solid #0e0e28', borderRadius:13, padding:'13px 15px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div>
+                    <p style={{ color:'#fff', fontSize:13, fontWeight:700, margin:'0 0 3px' }}>{emp.name}</p>
+                    <p style={{ color:'#555', fontSize:10, margin:'0 0 6px' }}>{emp.role} · {emp.emp_code}</p>
+                    <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                      <span style={{ color:'#4af0c8', fontSize:10 }}>⏰ {emp.jam_masuk}–{emp.jam_pulang}</span>
+                      <span style={{ color:'#888', fontSize:10 }}>🔑 {emp.pin}</span>
+                      <span style={{ color:'#ffaa44', fontSize:10 }}>{emp.tipe_gaji === 'harian' ? `💵 ${fmtRupiah(emp.gaji_pokok)}/hari` : `💵 ${fmtRupiah(emp.gaji_pokok)}/bln`}</span>
+                    </div>
+                    <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:4 }}>
+                      {emp.potongan_absen > 0 && <span style={{ color:'#ff6b6b', fontSize:9 }}>✂️ Absen: {fmtRupiah(emp.potongan_absen)}</span>}
+                      {emp.potongan_telat > 0 && <span style={{ color:'#ffaa44', fontSize:9 }}>✂️ Telat: {fmtRupiah(emp.potongan_telat)}</span>}
+                      {emp.bonus_rajin > 0 && <span style={{ color:'#4af0c8', fontSize:9 }}>⭐ Bonus: {fmtRupiah(emp.bonus_rajin)}</span>}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:6, flexShrink:0, marginLeft:10 }}>
+                    <button onClick={() => startEdit(emp)} style={{ background:'#0a1e2e', border:'1px solid #1e4a6e', color:'#4af', borderRadius:8, padding:'6px 11px', cursor:'pointer', fontFamily:'inherit', fontSize:10 }}>Edit</button>
+                    <button onClick={() => del(emp.id, emp.name)} style={{ background:'#1e0a0a', border:'1px solid #4e1a1a', color:'#f55', borderRadius:8, padding:'6px 11px', cursor:'pointer', fontFamily:'inherit', fontSize:10 }}>Hapus</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
 
   return (
     <>
