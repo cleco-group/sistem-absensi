@@ -68,7 +68,10 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
   const [customStart, setCustomStart] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'))
   const [customEnd, setCustomEnd] = useState(today)
   const [viewPhoto, setViewPhoto] = useState(null)
+  const [salaryFilterMode, setSalaryFilterMode] = useState('bulanan')
   const [salaryMonth, setSalaryMonth] = useState(today.slice(0, 7))
+  const [salaryCustomStart, setSalaryCustomStart] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'))
+  const [salaryCustomEnd, setSalaryCustomEnd] = useState(today)
 
   const dateRange = useMemo(() => {
     if (filterMode === 'harian') return { start: today, end: today }
@@ -80,9 +83,10 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
   const { records, loading } = useAttendance(dateRange.start, dateRange.end)
 
   const salaryRange = useMemo(() => {
+    if (salaryFilterMode === 'kustom') return { start: salaryCustomStart, end: salaryCustomEnd }
     const d = new Date(salaryMonth + '-01')
     return { start: format(startOfMonth(d), 'yyyy-MM-dd'), end: format(endOfMonth(d), 'yyyy-MM-dd') }
-  }, [salaryMonth])
+  }, [salaryFilterMode, salaryMonth, salaryCustomStart, salaryCustomEnd])
   const { records: salaryRecords } = useAttendance(salaryRange.start, salaryRange.end)
 
   const todayRecords = records.filter(r => r.tanggal === today)
@@ -243,16 +247,47 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
 
         {tab === 'gaji' && (
           <>
-            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
-              <div>
-                <label style={{ color:t.textMuted, fontSize:10, letterSpacing:1, display:'block', marginBottom:4 }}>PERIODE GAJI</label>
-                <input type="month" value={salaryMonth} onChange={e=>setSalaryMonth(e.target.value)}
-                  style={{ background:t.bgCard, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'8px 12px', color:t.accent, fontFamily:'inherit', fontSize:12 }} />
+            <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:12, padding:'12px 14px', marginBottom:20, boxShadow:t.shadow }}>
+              {/* Mode toggle */}
+              <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+                {['bulanan','kustom'].map(m => (
+                  <button key={m} onClick={() => setSalaryFilterMode(m)} style={{
+                    padding:'6px 14px', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontSize:10, letterSpacing:1,
+                    background: salaryFilterMode===m ? t.accent : 'transparent',
+                    color: salaryFilterMode===m ? t.accentText : t.textMuted,
+                    border: `1px solid ${salaryFilterMode===m ? t.accent : t.borderSub}`,
+                    textTransform:'uppercase', transition:'all .15s',
+                  }}>{m}</button>
+                ))}
               </div>
-              <div style={{ marginTop:18 }}>
-                <p style={{ color:t.textMuted, fontSize:10 }}>{fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)}</p>
-                <p style={{ color:t.textDim, fontSize:10 }}>Hari kerja: {workdaysInRange(salaryRange.start, salaryRange.end)} hari</p>
-              </div>
+
+              {salaryFilterMode === 'bulanan' ? (
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div>
+                    <label style={{ color:t.textMuted, fontSize:10, letterSpacing:1, display:'block', marginBottom:4 }}>BULAN</label>
+                    <input type="month" value={salaryMonth} onChange={e=>setSalaryMonth(e.target.value)}
+                      style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 12px', color:t.accent, fontFamily:'inherit', fontSize:12 }} />
+                  </div>
+                  <div style={{ marginTop:18 }}>
+                    <p style={{ color:t.textMuted, fontSize:10 }}>{fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)}</p>
+                    <p style={{ color:t.textDim, fontSize:10 }}>Hari kerja: {workdaysInRange(salaryRange.start, salaryRange.end)} hari</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ color:t.textMuted, fontSize:10, letterSpacing:1, display:'block', marginBottom:6 }}>RENTANG TANGGAL</label>
+                  <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                    <input type="date" value={salaryCustomStart} onChange={e=>setSalaryCustomStart(e.target.value)}
+                      style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 10px', color:t.accent, fontFamily:'inherit', fontSize:11 }} />
+                    <span style={{ color:t.textMuted }}>—</span>
+                    <input type="date" value={salaryCustomEnd} onChange={e=>setSalaryCustomEnd(e.target.value)}
+                      style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 10px', color:t.accent, fontFamily:'inherit', fontSize:11 }} />
+                  </div>
+                  <p style={{ color:t.textDim, fontSize:10, marginTop:8 }}>
+                    {fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)} · Hari kerja: {workdaysInRange(salaryRange.start, salaryRange.end)} hari
+                  </p>
+                </div>
+              )}
             </div>
 
             <SectionTitle>GRAFIK GAJI BERSIH</SectionTitle>
