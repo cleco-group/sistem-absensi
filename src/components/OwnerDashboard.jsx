@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts'
 import { useAttendance, useEmployees } from '../hooks/useData'
 import { todayStr, weekRange, monthRange, fmtDate, fmtDay, fmtRupiah, hitungGaji, workdaysInRange } from '../lib/utils'
@@ -54,26 +54,73 @@ const Tab = ({ label, active, onClick }) => {
 const Card = ({ icon, label, value, sub, gradient, glow }) => {
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
+  const cardRef = useRef(null)
+  const [tilt, setTilt] = useState({ x: 0, y: 0, shine: { x: 50, y: 50 } })
+  const [hovered, setHovered] = useState(false)
+
+  const handleMouseMove = useCallback((e) => {
+    const el = cardRef.current
+    if (!el) return
+    const { left, top, width, height } = el.getBoundingClientRect()
+    const x = (e.clientX - left) / width  - 0.5
+    const y = (e.clientY - top)  / height - 0.5
+    setTilt({ x: y * 12, y: x * -12, shine: { x: (e.clientX - left) / width * 100, y: (e.clientY - top) / height * 100 } })
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    setTilt({ x: 0, y: 0, shine: { x: 50, y: 50 } })
+    setHovered(false)
+  }, [])
+
   return (
-    <div className="card-lift" style={{
-      background: isDark
-        ? 'linear-gradient(145deg, rgba(10,10,28,0.98), rgba(7,7,20,0.96))'
-        : '#ffffff',
-      border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : t.border}`,
-      borderRadius: 18, padding: '18px 16px',
-      boxShadow: isDark
-        ? `0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05) inset${glow ? ', ' + glow : ''}`
-        : `${t.cardShadow}${glow ? ', ' + glow : ''}`,
-    }}>
-      <div style={{ fontSize:26, marginBottom:10 }}>{icon}</div>
-      <div style={{
-        fontSize:30, fontWeight:800, fontFamily:"'Syne',sans-serif",
-        background: gradient || t.gradientAccent,
-        WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
-        lineHeight:1.1, marginBottom:6,
-      }}>{value}</div>
-      <div style={{ color:t.textSub, fontSize:11 }}>{label}</div>
-      {sub && <div style={{ color:t.textMuted, fontSize:10, marginTop:2 }}>{sub}</div>}
+    <div
+      ref={cardRef}
+      onMouseMove={isDark ? handleMouseMove : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        background: isDark
+          ? 'linear-gradient(145deg, rgba(10,10,28,0.98), rgba(7,7,20,0.96))'
+          : '#ffffff',
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : t.border}`,
+        borderRadius: 18, padding: '18px 16px',
+        boxShadow: isDark
+          ? `0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05) inset${glow ? ', ' + glow : ''}`
+          : `${t.cardShadow}${glow ? ', ' + glow : ''}`,
+        transform: `perspective(700px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale3d(${hovered ? 1.025 : 1},${hovered ? 1.025 : 1},1)`,
+        transition: hovered ? 'transform 0.08s ease, box-shadow 0.2s ease' : 'transform 0.45s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.4s ease',
+        position: 'relative', overflow: 'hidden', cursor: 'default',
+      }}
+    >
+      {/* Shine overlay */}
+      {isDark && hovered && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 18, pointerEvents: 'none', zIndex: 1,
+          background: `radial-gradient(circle at ${tilt.shine.x}% ${tilt.shine.y}%, rgba(255,255,255,0.07) 0%, transparent 60%)`,
+        }} />
+      )}
+      {/* Holographic shimmer */}
+      {isDark && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 18, pointerEvents: 'none', zIndex: 0,
+          background: 'linear-gradient(135deg, rgba(74,240,200,0.035) 0%, rgba(0,200,255,0.025) 40%, rgba(167,139,250,0.035) 70%, rgba(255,107,157,0.025) 100%)',
+          backgroundSize: '300% 300%',
+          animation: 'holo-shift 6s ease infinite',
+          opacity: hovered ? 1 : 0.5,
+          transition: 'opacity 0.3s',
+        }} />
+      )}
+      <div style={{ position: 'relative', zIndex: 2 }}>
+        <div style={{ fontSize:26, marginBottom:10 }}>{icon}</div>
+        <div style={{
+          fontSize:30, fontWeight:800, fontFamily:"'Syne',sans-serif",
+          background: gradient || t.gradientAccent,
+          WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
+          lineHeight:1.1, marginBottom:6,
+        }}>{value}</div>
+        <div style={{ color:t.textSub, fontSize:11 }}>{label}</div>
+        {sub && <div style={{ color:t.textMuted, fontSize:10, marginTop:2 }}>{sub}</div>}
+      </div>
     </div>
   )
 }

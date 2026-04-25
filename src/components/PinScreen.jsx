@@ -2,6 +2,32 @@ import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
 
+const PARTICLE_DATA = Array.from({ length: 22 }, (_, i) => ({
+  left: (i * 53 + 11) % 100,
+  bottom: (i * 31 + 7) % 60,
+  size: 1 + (i % 3),
+  color: ['#4af0c8','#00c8ff','#a78bfa','#ff6b9d'][i % 4],
+  opacity: 0.12 + (i % 5) * 0.07,
+  duration: 5 + (i % 6),
+  delay: (i % 8) * 0.6,
+}))
+
+const Particles = () => (
+  <>
+    {PARTICLE_DATA.map((p, i) => (
+      <div key={i} style={{
+        position: 'fixed',
+        left: `${p.left}%`, bottom: `${p.bottom}%`,
+        width: p.size, height: p.size, borderRadius: '50%',
+        background: p.color, opacity: p.opacity,
+        animation: `particle-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
+        pointerEvents: 'none', zIndex: 0,
+        boxShadow: `0 0 ${p.size * 4}px ${p.color}`,
+      }} />
+    ))}
+  </>
+)
+
 export default function PinScreen({ employees, onLogin }) {
   const { isDark, toggleTheme } = useTheme()
   const t = isDark ? DARK : LIGHT
@@ -35,6 +61,9 @@ export default function PinScreen({ employees, onLogin }) {
       fontFamily: "'Space Mono',monospace", padding: 20,
       position: 'relative', overflow: 'hidden',
     }}>
+      {/* Particles — dark mode only */}
+      {isDark && <Particles />}
+
       {/* Ambient orbs — dark mode only */}
       {isDark && <>
         <div style={{
@@ -85,8 +114,8 @@ export default function PinScreen({ employees, onLogin }) {
               border: `1px solid ${t.accent}22`,
               animation: 'glow-pulse 2.5s ease-in-out infinite',
             }} />
-            {/* Logo box */}
-            <div style={{
+            {/* Logo box — neon-logo class handles float + neon glow animation */}
+            <div className={isDark ? 'neon-logo' : ''} style={{
               width: 76, height: 76, borderRadius: 24,
               background: isDark
                 ? 'linear-gradient(145deg, #0a2a40, #083a2e)'
@@ -94,14 +123,13 @@ export default function PinScreen({ employees, onLogin }) {
               border: `1.5px solid ${t.accentBorder}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 34, position: 'relative', zIndex: 1,
-              animation: 'float 3.5s ease-in-out infinite',
               boxShadow: isDark
-                ? `0 0 48px rgba(74,240,200,0.28), 0 12px 40px rgba(0,0,0,0.6)`
+                ? undefined
                 : `0 8px 32px rgba(12,174,134,0.22), 0 4px 12px rgba(0,0,0,0.06)`,
             }}>⏱</div>
           </div>
 
-          <h1 style={{
+          <h1 className={isDark ? 'neon-title' : ''} style={{
             fontSize: 28, letterSpacing: 7, fontFamily: "'Syne',sans-serif", fontWeight: 800,
             margin: '0 0 8px',
             background: t.gradientAccent,
@@ -114,17 +142,30 @@ export default function PinScreen({ employees, onLogin }) {
 
         {/* PIN display */}
         <div style={{ animation: shake ? 'shake 0.4s ease' : 'none' }}>
-          <div style={{
-            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.95)',
-            backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-            border: `1px solid ${err ? t.danger : isDark ? 'rgba(255,255,255,0.08)' : t.border}`,
-            borderRadius: 20, padding: '22px 24px', marginBottom: 20,
-            boxShadow: err
-              ? `0 0 0 3px ${t.dangerDim}, 0 8px 32px rgba(0,0,0,0.35)`
-              : isDark ? '0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset' : t.cardShadow,
-            transition: 'border-color 0.2s, box-shadow 0.2s',
-          }}>
-            <div style={{ minHeight: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+          <div
+            className={`${isDark ? 'holo-border scanlines scan-sweep' : ''}`}
+            style={{
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+              border: `1px solid ${err ? t.danger : isDark ? 'rgba(74,240,200,0.35)' : t.border}`,
+              borderRadius: 20, padding: '22px 24px', marginBottom: 20,
+              position: 'relative', overflow: 'hidden',
+              boxShadow: err
+                ? `0 0 0 3px ${t.dangerDim}, 0 8px 32px rgba(0,0,0,0.35)`
+                : isDark ? '0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset' : t.cardShadow,
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}>
+            {/* Holographic shimmer overlay — dark mode */}
+            {isDark && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: 20, pointerEvents: 'none',
+                background: 'linear-gradient(135deg, rgba(74,240,200,0.04) 0%, rgba(0,200,255,0.03) 40%, rgba(167,139,250,0.04) 70%, rgba(255,107,157,0.03) 100%)',
+                backgroundSize: '300% 300%',
+                animation: 'holo-shift 5s ease infinite',
+                zIndex: 0,
+              }} />
+            )}
+            <div style={{ minHeight: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, position: 'relative', zIndex: 1 }}>
               {pin.length === 0
                 ? <span style={{ color: t.textDim, fontSize: 11, letterSpacing: 3 }}>MASUKKAN PIN</span>
                 : Array.from({ length: Math.max(6, pin.length) }).map((_, i) => (
