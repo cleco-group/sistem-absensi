@@ -177,9 +177,13 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
 
   const salaryRange = useMemo(() => {
     if (salaryFilterMode === 'kustom') return { start: salaryCustomStart, end: salaryCustomEnd }
+    if (salaryFilterMode === 'mingguan') return weekRange()
+    if (salaryFilterMode === 'triwulan') {
+      return { start: format(subDays(new Date(), 89), 'yyyy-MM-dd'), end: today }
+    }
     const d = new Date(salaryMonth + '-01')
     return { start: format(startOfMonth(d), 'yyyy-MM-dd'), end: format(endOfMonth(d), 'yyyy-MM-dd') }
-  }, [salaryFilterMode, salaryMonth, salaryCustomStart, salaryCustomEnd])
+  }, [salaryFilterMode, salaryMonth, salaryCustomStart, salaryCustomEnd, today])
   const { records: salaryRecords } = useAttendance(salaryRange.start, salaryRange.end)
 
   const todayRecords = records.filter(r => r.tanggal === today)
@@ -347,45 +351,95 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
 
         {tab === 'gaji' && (
           <>
-            <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:12, padding:'12px 14px', marginBottom:20, boxShadow:t.shadow }}>
-              {/* Mode toggle */}
-              <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-                {['bulanan','kustom'].map(m => (
-                  <button key={m} onClick={() => setSalaryFilterMode(m)} style={{
-                    padding:'6px 14px', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontSize:10, letterSpacing:1,
-                    background: salaryFilterMode===m ? t.accent : 'transparent',
-                    color: salaryFilterMode===m ? t.accentText : t.textMuted,
-                    border: `1px solid ${salaryFilterMode===m ? t.accent : t.borderSub}`,
-                    textTransform:'uppercase', transition:'all .15s',
-                  }}>{m}</button>
+            {/* Salary period filter card */}
+            <div style={{
+              background: isDark ? 'linear-gradient(145deg, rgba(10,10,28,0.98), rgba(7,7,20,0.96))' : '#ffffff',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : t.border}`,
+              borderRadius: 16, padding: '16px', marginBottom: 20,
+              boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset' : t.cardShadow,
+            }}>
+              <p style={{ color:t.textDim, fontSize:10, letterSpacing:2, marginBottom:10 }}>PERIODE GAJI</p>
+
+              {/* Mode pills */}
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:14 }}>
+                {[
+                  { id:'mingguan',  label:'Minggu Ini',  icon:'📅' },
+                  { id:'bulanan',   label:'Bulanan',     icon:'📆' },
+                  { id:'triwulan', label:'3 Bulan',    icon:'🗓️' },
+                  { id:'kustom',    label:'Kustom',      icon:'✏️' },
+                ].map(({ id, label, icon }) => (
+                  <button key={id} onClick={() => setSalaryFilterMode(id)} style={{
+                    padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+                    fontFamily: 'inherit', fontSize: 10, letterSpacing: 1,
+                    background: salaryFilterMode === id
+                      ? t.gradientAccent
+                      : isDark ? 'rgba(255,255,255,0.04)' : t.bgCardAlt,
+                    color: salaryFilterMode === id ? t.accentText : t.textMuted,
+                    border: `1px solid ${salaryFilterMode === id ? 'transparent' : isDark ? 'rgba(255,255,255,0.08)' : t.border}`,
+                    boxShadow: salaryFilterMode === id ? t.glowAccent : 'none',
+                    transition: 'all .15s',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}>
+                    <span>{icon}</span> {label.toUpperCase()}
+                  </button>
                 ))}
               </div>
 
-              {salaryFilterMode === 'bulanan' ? (
-                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              {/* Month picker — bulanan */}
+              {salaryFilterMode === 'bulanan' && (
+                <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
                   <div>
                     <label style={{ color:t.textMuted, fontSize:10, letterSpacing:1, display:'block', marginBottom:4 }}>BULAN</label>
-                    <input type="month" value={salaryMonth} onChange={e=>setSalaryMonth(e.target.value)}
+                    <input type="month" value={salaryMonth} onChange={e => setSalaryMonth(e.target.value)}
                       style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 12px', color:t.accent, fontFamily:'inherit', fontSize:12 }} />
                   </div>
-                  <div style={{ marginTop:18 }}>
-                    <p style={{ color:t.textMuted, fontSize:10 }}>{fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)}</p>
-                    <p style={{ color:t.textDim, fontSize:10 }}>Hari kerja: {workdaysInRange(salaryRange.start, salaryRange.end)} hari</p>
+                  <div style={{ marginTop:16 }}>
+                    <p style={{ color:t.textSub, fontSize:11, margin:'0 0 2px' }}>{fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)}</p>
+                    <p style={{ color:t.textDim, fontSize:10, margin:0 }}>Hari kerja: {workdaysInRange(salaryRange.start, salaryRange.end)} hari</p>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* Custom date range — kustom */}
+              {salaryFilterMode === 'kustom' && (
                 <div>
-                  <label style={{ color:t.textMuted, fontSize:10, letterSpacing:1, display:'block', marginBottom:6 }}>RENTANG TANGGAL</label>
-                  <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                    <input type="date" value={salaryCustomStart} onChange={e=>setSalaryCustomStart(e.target.value)}
-                      style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 10px', color:t.accent, fontFamily:'inherit', fontSize:11 }} />
-                    <span style={{ color:t.textMuted }}>—</span>
-                    <input type="date" value={salaryCustomEnd} onChange={e=>setSalaryCustomEnd(e.target.value)}
-                      style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 10px', color:t.accent, fontFamily:'inherit', fontSize:11 }} />
+                  <label style={{ color:t.textMuted, fontSize:10, letterSpacing:1, display:'block', marginBottom:8 }}>RENTANG TANGGAL KUSTOM</label>
+                  <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:8 }}>
+                    <div>
+                      <p style={{ color:t.textDim, fontSize:9, letterSpacing:1, margin:'0 0 4px' }}>DARI</p>
+                      <input type="date" value={salaryCustomStart} onChange={e => setSalaryCustomStart(e.target.value)}
+                        style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 10px', color:t.accent, fontFamily:'inherit', fontSize:11 }} />
+                    </div>
+                    <div style={{ paddingTop:16, color:t.textDim }}>→</div>
+                    <div>
+                      <p style={{ color:t.textDim, fontSize:9, letterSpacing:1, margin:'0 0 4px' }}>SAMPAI</p>
+                      <input type="date" value={salaryCustomEnd} onChange={e => setSalaryCustomEnd(e.target.value)}
+                        style={{ background:t.bgInput, border:`1px solid ${t.borderInput}`, borderRadius:8, padding:'7px 10px', color:t.accent, fontFamily:'inherit', fontSize:11 }} />
+                    </div>
                   </div>
-                  <p style={{ color:t.textDim, fontSize:10, marginTop:8 }}>
-                    {fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)} · Hari kerja: {workdaysInRange(salaryRange.start, salaryRange.end)} hari
+                  <p style={{ color:t.textDim, fontSize:10, margin:0 }}>
+                    {fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)} · {workdaysInRange(salaryRange.start, salaryRange.end)} hari kerja
                   </p>
+                </div>
+              )}
+
+              {/* Summary badge for preset modes */}
+              {(salaryFilterMode === 'mingguan' || salaryFilterMode === 'triwulan') && (
+                <div style={{
+                  background: isDark ? 'rgba(74,240,200,0.06)' : 'rgba(12,174,134,0.06)',
+                  border: `1px solid ${t.accent}30`,
+                  borderRadius: 10, padding: '10px 14px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <p style={{ color:t.accent, fontSize:12, fontWeight:700, margin:'0 0 2px' }}>
+                      {fmtDate(salaryRange.start)} – {fmtDate(salaryRange.end)}
+                    </p>
+                    <p style={{ color:t.textDim, fontSize:10, margin:0 }}>
+                      {workdaysInRange(salaryRange.start, salaryRange.end)} hari kerja
+                    </p>
+                  </div>
+                  <span style={{ fontSize:22 }}>{salaryFilterMode === 'mingguan' ? '📅' : '🗓️'}</span>
                 </div>
               )}
             </div>
