@@ -7,30 +7,73 @@ import { id as localeId } from 'date-fns/locale'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
 
+// ─── Avatar helper ────────────────────────────────────────────────────────────
+const AVATAR_COLORS = ['#4af0c8','#00c8ff','#ff6b9d','#a78bfa','#ffaa44','#34d399','#f87171']
+const getAvatarColor = name => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+const getInitials    = name => name.split(' ').filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase()
+
+const Avatar = ({ name, size = 38 }) => {
+  const color = getAvatarColor(name)
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: `linear-gradient(135deg, ${color}22, ${color}44)`,
+      border: `1.5px solid ${color}62`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.36, fontWeight: 700, color,
+      flexShrink: 0, fontFamily: "'Syne',sans-serif",
+      boxShadow: `0 0 16px ${color}28`,
+    }}>{getInitials(name)}</div>
+  )
+}
+
 // ─── sub-components ──────────────────────────────────────────────────────────
 const Tab = ({ label, active, onClick }) => {
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
   return (
     <button onClick={onClick} style={{
-      padding:'11px 0', flex:1, background:'transparent', border:'none',
+      padding:'12px 0', flex:1, background:'transparent', border:'none',
       color: active ? t.accent : t.textMuted, cursor:'pointer',
-      fontFamily:"'Space Mono',monospace", fontSize:11, letterSpacing:1,
-      borderBottom: active ? `2px solid ${t.accent}` : '2px solid transparent',
-      transition:'all .15s',
-    }}>{label}</button>
+      fontFamily:"'Space Mono',monospace", fontSize:10, letterSpacing:1.5,
+      borderBottom: `2px solid ${active ? t.accent : 'transparent'}`,
+      transition:'all .2s', position:'relative',
+    }}>
+      {active && (
+        <span style={{
+          position:'absolute', bottom:-1, left:'50%', transform:'translateX(-50%)',
+          width:24, height:2, borderRadius:2,
+          background:t.gradientAccent, filter:'blur(2px)', pointerEvents:'none',
+        }} />
+      )}
+      {label}
+    </button>
   )
 }
 
-const Card = ({ icon, label, value, sub, color }) => {
+const Card = ({ icon, label, value, sub, gradient, glow }) => {
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
   return (
-    <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:14, padding:'14px 16px', boxShadow:t.shadow }}>
-      <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
-      <div style={{ color: color || t.accent, fontSize:22, fontWeight:700, fontFamily:"'Syne',sans-serif" }}>{value}</div>
-      <div style={{ color:t.textSub, fontSize:11, marginTop:2 }}>{label}</div>
-      {sub && <div style={{ color:t.textMuted, fontSize:10, marginTop:3 }}>{sub}</div>}
+    <div className="card-lift" style={{
+      background: isDark
+        ? 'linear-gradient(145deg, rgba(10,10,28,0.98), rgba(7,7,20,0.96))'
+        : '#ffffff',
+      border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : t.border}`,
+      borderRadius: 18, padding: '18px 16px',
+      boxShadow: isDark
+        ? `0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05) inset${glow ? ', ' + glow : ''}`
+        : `${t.cardShadow}${glow ? ', ' + glow : ''}`,
+    }}>
+      <div style={{ fontSize:26, marginBottom:10 }}>{icon}</div>
+      <div style={{
+        fontSize:30, fontWeight:800, fontFamily:"'Syne',sans-serif",
+        background: gradient || t.gradientAccent,
+        WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
+        lineHeight:1.1, marginBottom:6,
+      }}>{value}</div>
+      <div style={{ color:t.textSub, fontSize:11 }}>{label}</div>
+      {sub && <div style={{ color:t.textMuted, fontSize:10, marginTop:2 }}>{sub}</div>}
     </div>
   )
 }
@@ -39,7 +82,10 @@ const SectionTitle = ({ children }) => {
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
   return (
-    <p style={{ color:t.accent, fontSize:10, letterSpacing:3, margin:'22px 0 12px', fontWeight:700 }}>{children}</p>
+    <div style={{ display:'flex', alignItems:'center', gap:8, margin:'24px 0 14px' }}>
+      <div style={{ width:3, height:14, borderRadius:2, background:t.gradientAccent, flexShrink:0 }} />
+      <p style={{ color:t.accent, fontSize:10, letterSpacing:3, margin:0, fontWeight:700 }}>{children}</p>
+    </div>
   )
 }
 
@@ -48,10 +94,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   const t = isDark ? DARK : LIGHT
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:t.tooltipBg, border:`1px solid ${t.tooltipBorder}`, borderRadius:8, padding:'8px 12px', fontFamily:"'Space Mono',monospace", fontSize:11, boxShadow:t.shadow }}>
-      <p style={{ color:t.textSub, marginBottom:4 }}>{label}</p>
+    <div style={{ background:t.tooltipBg, border:`1px solid ${t.tooltipBorder}`, borderRadius:10, padding:'10px 14px', fontFamily:"'Space Mono',monospace", fontSize:11, boxShadow:t.cardShadow }}>
+      <p style={{ color:t.textSub, marginBottom:6, fontWeight:700 }}>{label}</p>
       {payload.map(p => (
-        <p key={p.name} style={{ color:p.color, margin:'2px 0' }}>{p.name}: {p.value}</p>
+        <p key={p.name} style={{ color:p.color, margin:'3px 0' }}>{p.name}: {p.value}</p>
       ))}
     </div>
   )
@@ -128,34 +174,41 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
   }), [employees, salaryRecords, salaryRange])
 
   return (
-    <div style={{ minHeight:'100vh', background:t.bg, fontFamily:"'Space Mono',monospace", color:t.text }}>
+    <div style={{ minHeight:'100vh', background:t.bgMesh, fontFamily:"'Space Mono',monospace", color:t.text }}>
       {viewPhoto && (
-        <div onClick={() => setViewPhoto(null)} style={{ position:'fixed', inset:0, background:t.bgOverlay, display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, cursor:'pointer' }}>
-          <div style={{ textAlign:'center' }}>
-            <img src={viewPhoto} style={{ maxWidth:'min(420px,90vw)', borderRadius:16, border:`2px solid ${t.accent}`, transform:'scaleX(-1)', display:'block', boxShadow:`0 0 32px ${t.accentDim}` }} alt="Preview" />
-            <p style={{ color:t.textMuted, fontSize:11, marginTop:12 }}>Tap untuk menutup</p>
+        <div onClick={() => setViewPhoto(null)} style={{ position:'fixed', inset:0, background:t.bgOverlay, display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, cursor:'pointer', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)' }}>
+          <div style={{ textAlign:'center', animation:'slide-up 0.2s ease' }}>
+            <img src={viewPhoto} style={{ maxWidth:'min(420px,90vw)', borderRadius:20, border:`2px solid ${t.accent}`, transform:'scaleX(-1)', display:'block', boxShadow:`0 0 48px ${t.accent}35` }} alt="Preview" />
+            <p style={{ color:t.textMuted, fontSize:11, marginTop:14 }}>Tap untuk menutup</p>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div style={{ background:t.bgCard, borderBottom:`1px solid ${t.border}`, padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, zIndex:100, boxShadow:t.shadow }}>
+      <div style={{
+        background: t.headerBg,
+        backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
+        borderBottom:`1px solid ${isDark ? 'rgba(255,255,255,0.06)' : t.border}`,
+        padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center',
+        position:'sticky', top:0, zIndex:100,
+        boxShadow: isDark ? '0 4px 32px rgba(0,0,0,0.5)' : '0 2px 20px rgba(30,32,60,0.07)',
+      }}>
         <div>
-          <p style={{ color:t.accent, fontSize:14, letterSpacing:3, fontFamily:"'Syne',sans-serif", fontWeight:800, margin:0 }}>OWNER PANEL</p>
+          <p style={{
+            fontSize:15, letterSpacing:4, fontFamily:"'Syne',sans-serif", fontWeight:800, margin:0,
+            background:t.gradientAccent,
+            WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
+          }}>OWNER PANEL</p>
           <p style={{ color:t.textDim, fontSize:9, marginTop:2, letterSpacing:1 }}>{fmtDay(today)}, {fmtDate(today)}</p>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <button
-            onClick={toggleTheme}
-            title={isDark ? 'Mode Terang' : 'Mode Gelap'}
-            style={{ background:t.bgCardAlt, border:`1px solid ${t.border}`, borderRadius:9, padding:'6px 10px', cursor:'pointer', fontSize:15, lineHeight:1 }}
-          >{isDark ? '☀️' : '🌙'}</button>
-          <button onClick={onLogout} style={{ background:'transparent', border:`1px solid ${t.borderSub}`, color:t.textMuted, borderRadius:8, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontSize:10 }}>KELUAR</button>
+          <button onClick={toggleTheme} className="btn-lift" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : t.bgCardAlt, border:`1px solid ${isDark ? 'rgba(255,255,255,0.1)' : t.border}`, borderRadius:10, padding:'7px 11px', cursor:'pointer', fontSize:15, lineHeight:1 }}>{isDark ? '☀️' : '🌙'}</button>
+          <button onClick={onLogout} className="btn-lift" style={{ background:'transparent', border:`1px solid ${t.borderSub}`, color:t.textMuted, borderRadius:9, padding:'7px 13px', cursor:'pointer', fontFamily:'inherit', fontSize:10, letterSpacing:1 }}>KELUAR</button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display:'flex', borderBottom:`1px solid ${t.border}`, background:t.bgCard }}>
+      <div style={{ display:'flex', borderBottom:`1px solid ${isDark ? 'rgba(255,255,255,0.06)' : t.border}`, background: isDark ? 'rgba(7,7,22,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)' }}>
         <Tab label="📊 DASHBOARD" active={tab==='dashboard'} onClick={() => setTab('dashboard')} />
         <Tab label="💰 GAJI"      active={tab==='gaji'}      onClick={() => setTab('gaji')} />
         <Tab label="📋 ABSENSI"   active={tab==='absensi'}   onClick={() => setTab('absensi')} />
@@ -195,11 +248,11 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
 
         {tab === 'dashboard' && (
           <>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:10, marginBottom:4 }}>
-              <Card icon="👥" label="Total Karyawan"     value={employees.length} />
-              <Card icon="✅" label="Hadir Hari Ini"      value={hadirHariIni}                    color={t.chartHadir} />
-              <Card icon="❌" label="Tidak Hadir"         value={employees.length - hadirHariIni} color={t.danger} />
-              <Card icon="⏰" label="Terlambat Hari Ini"  value={telatHariIni}                    color={t.warn} />
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12, marginBottom:4 }}>
+              <Card icon="👥" label="Total Karyawan"    value={employees.length} gradient={t.gradientNeutral} />
+              <Card icon="✅" label="Hadir Hari Ini"     value={hadirHariIni}                    gradient={t.gradientAccent} glow={t.glowAccent} />
+              <Card icon="❌" label="Tidak Hadir"        value={employees.length - hadirHariIni} gradient={t.gradientDanger} glow={t.glowDanger} />
+              <Card icon="⏰" label="Terlambat Hari Ini" value={telatHariIni}                    gradient={t.gradientWarn}   glow={t.glowWarn} />
             </div>
 
             <SectionTitle>KEHADIRAN HARI INI</SectionTitle>
@@ -313,13 +366,16 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
               {salaryData.map(emp => (
                 <div key={emp.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:14, overflow:'hidden', boxShadow:t.shadow }}>
-                  <div style={{ background:t.bgCardAlt, padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${t.border}` }}>
-                    <div>
-                      <p style={{ color:t.text, fontSize:13, fontWeight:700, margin:'0 0 2px' }}>{emp.name}</p>
-                      <p style={{ color:t.textMuted, fontSize:10, margin:0 }}>{emp.role} · {emp.tipe_gaji === 'harian' ? '📅 Harian' : '📆 Bulanan'}</p>
+                  <div style={{ background: isDark ? 'rgba(255,255,255,0.03)' : t.bgCardAlt, padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${t.border}` }}>
+                    <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+                      <Avatar name={emp.name} size={40} />
+                      <div>
+                        <p style={{ color:t.text, fontSize:13, fontWeight:700, margin:'0 0 2px' }}>{emp.name}</p>
+                        <p style={{ color:t.textMuted, fontSize:10, margin:0 }}>{emp.role} · {emp.tipe_gaji === 'harian' ? '📅 Harian' : '📆 Bulanan'}</p>
+                      </div>
                     </div>
                     <div style={{ textAlign:'right' }}>
-                      <p style={{ color:t.accent, fontSize:18, fontWeight:700, margin:'0 0 2px', fontFamily:"'Syne',sans-serif" }}>{fmtRupiah(emp.gajiBersih)}</p>
+                      <p style={{ fontSize:18, fontWeight:700, margin:'0 0 2px', fontFamily:"'Syne',sans-serif", background:t.gradientAccent, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{fmtRupiah(emp.gajiBersih)}</p>
                       <p style={{ color:t.textDim, fontSize:10, margin:0 }}>Gaji Bersih</p>
                     </div>
                   </div>
@@ -365,9 +421,12 @@ export default function OwnerDashboard({ employees, onLogout, onRefreshEmployees
                   const empRecs = records.filter(r => r.employee_id === emp.id)
                   return (
                     <div key={emp.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:14, overflow:'hidden', boxShadow:t.shadow }}>
-                      <div style={{ background:t.bgCardAlt, padding:'10px 14px', borderBottom:`1px solid ${t.border}` }}>
-                        <p style={{ color:t.text, fontSize:12, fontWeight:700, margin:'0 0 2px' }}>{emp.name}</p>
-                        <p style={{ color:t.textMuted, fontSize:10, margin:0 }}>{emp.role}</p>
+                      <div style={{ background: isDark ? 'rgba(255,255,255,0.03)' : t.bgCardAlt, padding:'12px 14px', borderBottom:`1px solid ${t.border}`, display:'flex', gap:10, alignItems:'center' }}>
+                        <Avatar name={emp.name} size={32} />
+                        <div>
+                          <p style={{ color:t.text, fontSize:12, fontWeight:700, margin:'0 0 2px' }}>{emp.name}</p>
+                          <p style={{ color:t.textMuted, fontSize:10, margin:0 }}>{emp.role}</p>
+                        </div>
                       </div>
                       {empRecs.length === 0 ? (
                         <p style={{ color:t.textDim, fontSize:11, padding:'12px 14px', margin:0 }}>Tidak ada data dalam periode ini.</p>
@@ -537,9 +596,11 @@ function SettingTab({ employees, onRefresh }) {
         {employees.map(emp => (
           <div key={emp.id}>
             {editId === emp.id ? renderEmpForm() : (
-              <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:13, padding:'13px 15px', boxShadow:t.shadow }}>
+              <div className="card-lift" style={{ background: isDark ? 'linear-gradient(145deg,rgba(10,10,28,0.98),rgba(7,7,20,0.96))' : '#ffffff', border:`1px solid ${isDark ? 'rgba(255,255,255,0.06)' : t.border}`, borderRadius:16, padding:'14px 16px', boxShadow:t.cardShadow }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div>
+                  <div style={{ display:'flex', gap:12, alignItems:'flex-start', flex:1, minWidth:0 }}>
+                    <Avatar name={emp.name} size={42} />
+                    <div style={{ flex:1, minWidth:0 }}>
                     <p style={{ color:t.text, fontSize:13, fontWeight:700, margin:'0 0 3px' }}>{emp.name}</p>
                     <p style={{ color:t.textMuted, fontSize:10, margin:'0 0 6px' }}>{emp.role} · {emp.emp_code}</p>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
@@ -551,6 +612,7 @@ function SettingTab({ employees, onRefresh }) {
                       {emp.potongan_absen > 0 && <span style={{ color:t.danger, fontSize:9 }}>✂️ Absen: {fmtRupiah(emp.potongan_absen)}</span>}
                       {emp.potongan_telat > 0 && <span style={{ color:t.warn,   fontSize:9 }}>✂️ Telat: {fmtRupiah(emp.potongan_telat)}</span>}
                       {emp.bonus_rajin   > 0 && <span style={{ color:t.accent,  fontSize:9 }}>⭐ Bonus: {fmtRupiah(emp.bonus_rajin)}</span>}
+                    </div>
                     </div>
                   </div>
                   <div style={{ display:'flex', gap:6, flexShrink:0, marginLeft:10 }}>
