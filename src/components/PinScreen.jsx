@@ -1,6 +1,11 @@
 import { useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { DARK, LIGHT } from '../lib/themes'
 
 export default function PinScreen({ employees, onLogin }) {
+  const { isDark, toggleTheme } = useTheme()
+  const t = isDark ? DARK : LIGHT
+
   const [pin, setPin]   = useState('')
   const [err, setErr]   = useState('')
   const [shake, setShake] = useState(false)
@@ -23,60 +28,108 @@ export default function PinScreen({ employees, onLogin }) {
   const keys = [1,2,3,4,5,6,7,8,9,'⌫',0,'✓']
 
   return (
-    <div style={{ minHeight:'100vh', background:'#04040f', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Space Mono',monospace", padding:20 }}>
+    <div style={{ minHeight:'100vh', background:t.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Space Mono',monospace", padding:20 }}>
+      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}`}</style>
+
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+        style={{
+          position:'fixed', top:16, right:16,
+          background:t.bgCard, border:`1px solid ${t.border}`,
+          borderRadius:10, padding:'7px 12px', cursor:'pointer',
+          fontSize:16, lineHeight:1, boxShadow:t.shadow,
+          transition:'all 0.2s',
+        }}
+      >{isDark ? '☀️' : '🌙'}</button>
+
       <div style={{ width:'min(340px,100%)', textAlign:'center' }}>
         {/* Logo */}
-        <div style={{ marginBottom:32 }}>
-          <div style={{ width:64, height:64, borderRadius:20, background:'linear-gradient(135deg,#0a2a4a,#0a4a3a)', border:'1px solid #1e5a4a', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, margin:'0 auto 16px' }}>⏱</div>
-          <h1 style={{ color:'#4af0c8', fontSize:20, letterSpacing:4, fontFamily:"'Syne',sans-serif", fontWeight:800, margin:'0 0 6px' }}>ABSENSI</h1>
-          <p style={{ color:'#333', fontSize:10, letterSpacing:2 }}>SISTEM MANAJEMEN KEHADIRAN</p>
+        <div style={{ marginBottom:36 }}>
+          <div style={{
+            width:70, height:70, borderRadius:22,
+            background: isDark
+              ? 'linear-gradient(135deg,#0a2a4a,#0a4a3a)'
+              : 'linear-gradient(135deg,#dff5ef,#d4eef8)',
+            border:`2px solid ${t.accentBorder}`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:30, margin:'0 auto 18px',
+            boxShadow: isDark ? `0 0 32px ${t.accentDim}` : `0 6px 20px ${t.accentDim}`,
+          }}>⏱</div>
+          <h1 style={{ color:t.accent, fontSize:22, letterSpacing:5, fontFamily:"'Syne',sans-serif", fontWeight:800, margin:'0 0 6px' }}>ABSENSI</h1>
+          <p style={{ color:t.textDim, fontSize:10, letterSpacing:2 }}>SISTEM MANAJEMEN KEHADIRAN</p>
         </div>
 
         {/* PIN Display */}
         <div style={{ animation: shake ? 'shake 0.4s ease' : 'none' }}>
-          <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}`}</style>
-          <div style={{ background:'#070718', border:`1px solid ${err?'#ff4444':'#1a1a3a'}`, borderRadius:14, padding:'16px 20px', marginBottom:20 }}>
-            <div style={{ minHeight:36, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+          <div style={{
+            background: t.bgCard,
+            border:`1px solid ${err ? t.danger : t.borderSub}`,
+            borderRadius:16, padding:'18px 20px', marginBottom:20,
+            boxShadow: err ? `0 0 0 3px ${t.dangerDim}` : t.shadow,
+            transition:'border-color 0.2s, box-shadow 0.2s',
+          }}>
+            <div style={{ minHeight:38, display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
               {pin.length === 0
-                ? <span style={{ color:'#2a2a4a', fontSize:12, letterSpacing:2 }}>MASUKKAN PIN</span>
+                ? <span style={{ color:t.textDim, fontSize:11, letterSpacing:2 }}>MASUKKAN PIN</span>
                 : Array.from({ length: Math.max(6, pin.length) }).map((_, i) => (
-                    <div key={i} style={{ width:10, height:10, borderRadius:'50%', background: i < pin.length ? '#4af0c8' : '#1a1a3a', transition:'all .15s', transform: i < pin.length ? 'scale(1.2)' : 'scale(1)' }} />
+                    <div key={i} style={{
+                      width:11, height:11, borderRadius:'50%',
+                      background: i < pin.length ? t.accent : t.borderInput,
+                      transition:'all .15s',
+                      transform: i < pin.length ? 'scale(1.25)' : 'scale(1)',
+                      boxShadow: i < pin.length ? `0 0 6px ${t.accent}80` : 'none',
+                    }} />
                   ))
               }
             </div>
           </div>
         </div>
 
-        {err && <p style={{ color:'#ff6b6b', fontSize:11, marginBottom:16, letterSpacing:1 }}>{err}</p>}
+        {err && <p style={{ color:t.danger, fontSize:11, marginBottom:16, letterSpacing:1 }}>{err}</p>}
 
         {/* Numpad */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-          {keys.map(k => (
-            <button key={k} onClick={() => {
-              setErr('')
-              if (k === '⌫') setPin(p => p.slice(0, -1))
-              else if (k === '✓') submit()
-              else if (pin.length < 6) setPin(p => p + k)
-            }} style={{
-              padding:'17px 8px',
-              background: k === '✓' ? 'linear-gradient(135deg,#0a4a3a,#0a3a4a)' : k === '⌫' ? '#0d0d20' : '#0a0a1a',
-              color: k === '✓' ? '#4af0c8' : k === '⌫' ? '#666' : '#ccc',
-              border: `1px solid ${k === '✓' ? '#1e6a5a' : '#1a1a2e'}`,
-              borderRadius:12,
-              cursor:'pointer',
-              fontSize: k === '✓' || k === '⌫' ? 18 : 18,
-              fontFamily:"'Space Mono',monospace",
-              fontWeight: k === '✓' ? 700 : 400,
-              transition:'all .1s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = '#2a4a6a'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = k === '✓' ? '#1e6a5a' : '#1a1a2e'}
-            >{k}</button>
-          ))}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9 }}>
+          {keys.map(k => {
+            const isConfirm = k === '✓'
+            const isDel = k === '⌫'
+            return (
+              <button
+                key={k}
+                onClick={() => {
+                  setErr('')
+                  if (isDel) setPin(p => p.slice(0, -1))
+                  else if (isConfirm) submit()
+                  else if (pin.length < 6) setPin(p => p + k)
+                }}
+                style={{
+                  padding:'18px 8px',
+                  background: isConfirm
+                    ? t.accent
+                    : isDel ? t.bgCardAlt : t.bgCard,
+                  color: isConfirm ? t.accentText : isDel ? t.textMuted : t.text,
+                  border:`1px solid ${isConfirm ? t.accentBorder : t.border}`,
+                  borderRadius:13,
+                  cursor:'pointer',
+                  fontSize:18,
+                  fontFamily:"'Space Mono',monospace",
+                  fontWeight: isConfirm ? 700 : 400,
+                  transition:'all .15s',
+                  boxShadow: isConfirm ? (isDark ? `0 0 16px ${t.accentDim}` : `0 3px 10px ${t.accentDim}`) : t.shadow,
+                }}
+                onMouseEnter={e => {
+                  if (!isConfirm) e.currentTarget.style.background = t.bgHover
+                  e.currentTarget.style.borderColor = isConfirm ? t.accent : t.borderInput
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = isConfirm ? t.accent : isDel ? t.bgCardAlt : t.bgCard
+                  e.currentTarget.style.borderColor = isConfirm ? t.accentBorder : t.border
+                }}
+              >{k}</button>
+            )
+          })}
         </div>
-
-        <p style={{ color:'#222', fontSize:10, marginTop:24, letterSpacing:1 }}>
-        </p>
       </div>
     </div>
   )

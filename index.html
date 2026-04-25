@@ -8,11 +8,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #04040f; color: #e2e2f0; font-family: 'Space Mono', monospace; }
-      ::-webkit-scrollbar { width: 4px; } 
+      body {
+        background: #04040f;
+        color: #e2e2f0;
+        font-family: 'Space Mono', monospace;
+        transition: background 0.25s, color 0.25s;
+      }
+      body[data-theme="light"] {
+        background: #f0f4fa;
+        color: #1e2030;
+      }
+      ::-webkit-scrollbar { width: 4px; }
       ::-webkit-scrollbar-track { background: #0a0a1a; }
       ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
-      input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+      body[data-theme="light"] ::-webkit-scrollbar-track { background: #e8ecf5; }
+      body[data-theme="light"] ::-webkit-scrollbar-thumb { background: #b0bcd4; border-radius: 4px; }
+      input[type=date]::-webkit-calendar-picker-indicator,
+      input[type=month]::-webkit-calendar-picker-indicator,
+      input[type=time]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+      body[data-theme="light"] input[type=date]::-webkit-calendar-picker-indicator,
+      body[data-theme="light"] input[type=month]::-webkit-calendar-picker-indicator,
+      body[data-theme="light"] input[type=time]::-webkit-calendar-picker-indicator { filter: none; }
     </style>
   </head>
   <body>
