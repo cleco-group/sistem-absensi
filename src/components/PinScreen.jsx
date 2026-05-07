@@ -2,12 +2,38 @@ import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
 
+const PARTICLE_DATA = Array.from({ length: 22 }, (_, i) => ({
+  left: (i * 53 + 11) % 100,
+  bottom: (i * 31 + 7) % 60,
+  size: 1 + (i % 3),
+  color: ['#4af0c8','#00c8ff','#a78bfa','#ff6b9d'][i % 4],
+  opacity: 0.12 + (i % 5) * 0.07,
+  duration: 5 + (i % 6),
+  delay: (i % 8) * 0.6,
+}))
+
+const Particles = () => (
+  <>
+    {PARTICLE_DATA.map((p, i) => (
+      <div key={i} style={{
+        position: 'fixed',
+        left: `${p.left}%`, bottom: `${p.bottom}%`,
+        width: p.size, height: p.size, borderRadius: '50%',
+        background: p.color, opacity: p.opacity,
+        animation: `particle-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
+        pointerEvents: 'none', zIndex: 0,
+        boxShadow: `0 0 ${p.size * 4}px ${p.color}`,
+      }} />
+    ))}
+  </>
+)
+
 export default function PinScreen({ employees, onLogin }) {
   const { isDark, toggleTheme } = useTheme()
   const t = isDark ? DARK : LIGHT
 
-  const [pin, setPin]   = useState('')
-  const [err, setErr]   = useState('')
+  const [pin, setPin]     = useState('')
+  const [err, setErr]     = useState('')
   const [shake, setShake] = useState(false)
 
   const OWNER_PIN = '0000'
@@ -28,58 +54,131 @@ export default function PinScreen({ employees, onLogin }) {
   const keys = [1,2,3,4,5,6,7,8,9,'⌫',0,'✓']
 
   return (
-    <div style={{ minHeight:'100vh', background:t.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Space Mono',monospace", padding:20 }}>
-      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}`}</style>
+    <div style={{
+      minHeight: '100vh',
+      background: t.bgMesh,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: "'Space Mono',monospace", padding: 20,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Particles — dark mode only */}
+      {isDark && <Particles />}
 
-      {/* Theme Toggle */}
+      {/* Ambient orbs — dark mode only */}
+      {isDark && <>
+        <div style={{
+          position: 'fixed', width: 560, height: 560, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(74,240,200,0.07) 0%, transparent 70%)',
+          top: '-120px', left: '-120px', pointerEvents: 'none',
+          animation: 'orb-drift 11s ease-in-out infinite',
+        }} />
+        <div style={{
+          position: 'fixed', width: 420, height: 420, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(0,170,255,0.06) 0%, transparent 70%)',
+          bottom: '-80px', right: '-80px', pointerEvents: 'none',
+          animation: 'orb-drift 14s ease-in-out infinite reverse',
+        }} />
+      </>}
+
+      {/* Theme toggle */}
       <button
         onClick={toggleTheme}
-        title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+        className="btn-lift"
         style={{
-          position:'fixed', top:16, right:16,
-          background:t.bgCard, border:`1px solid ${t.border}`,
-          borderRadius:10, padding:'7px 12px', cursor:'pointer',
-          fontSize:16, lineHeight:1, boxShadow:t.shadow,
-          transition:'all 0.2s',
+          position: 'fixed', top: 20, right: 20,
+          background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : t.border}`,
+          borderRadius: 12, padding: '8px 14px', cursor: 'pointer',
+          fontSize: 16, lineHeight: 1,
+          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.35)' : t.cardShadow,
         }}
       >{isDark ? '☀️' : '🌙'}</button>
 
-      <div style={{ width:'min(340px,100%)', textAlign:'center' }}>
-        {/* Logo */}
-        <div style={{ marginBottom:36 }}>
-          <div style={{
-            width:70, height:70, borderRadius:22,
-            background: isDark
-              ? 'linear-gradient(135deg,#0a2a4a,#0a4a3a)'
-              : 'linear-gradient(135deg,#dff5ef,#d4eef8)',
-            border:`2px solid ${t.accentBorder}`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:30, margin:'0 auto 18px',
-            boxShadow: isDark ? `0 0 32px ${t.accentDim}` : `0 6px 20px ${t.accentDim}`,
-          }}>⏱</div>
-          <h1 style={{ color:t.accent, fontSize:22, letterSpacing:5, fontFamily:"'Syne',sans-serif", fontWeight:800, margin:'0 0 6px' }}>ABSENSI</h1>
-          <p style={{ color:t.textDim, fontSize:10, letterSpacing:2 }}>SISTEM MANAJEMEN KEHADIRAN</p>
+      <div style={{ width: 'min(340px,100%)', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+
+        {/* Logo block */}
+        <div style={{ marginBottom: 42, animation: 'slide-up 0.5s ease forwards' }}>
+          <div style={{ position: 'relative', display: 'inline-flex', margin: '0 auto 22px' }}>
+            {/* Spinning gradient border ring */}
+            <div style={{
+              position: 'absolute', inset: -6, borderRadius: 30,
+              border: '2px solid transparent',
+              background: `linear-gradient(${isDark ? '#04040f' : '#f0f4fa'}, ${isDark ? '#04040f' : '#f0f4fa'}) padding-box,
+                           conic-gradient(from 0deg, transparent 0%, ${t.accent} 40%, transparent 70%) border-box`,
+              animation: 'ring-spin 4s linear infinite',
+            }} />
+            {/* Outer pulse ring */}
+            <div style={{
+              position: 'absolute', inset: -12, borderRadius: 34,
+              border: `1px solid ${t.accent}22`,
+              animation: 'glow-pulse 2.5s ease-in-out infinite',
+            }} />
+            {/* Logo box — neon-logo class handles float + neon glow animation */}
+            <div className={isDark ? 'neon-logo' : ''} style={{
+              width: 76, height: 76, borderRadius: 24,
+              background: isDark
+                ? 'linear-gradient(145deg, #0a2a40, #083a2e)'
+                : 'linear-gradient(145deg, #dff5ef, #d0eef8)',
+              border: `1.5px solid ${t.accentBorder}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 34, position: 'relative', zIndex: 1,
+              boxShadow: isDark
+                ? undefined
+                : `0 8px 32px rgba(12,174,134,0.22), 0 4px 12px rgba(0,0,0,0.06)`,
+            }}>⏱</div>
+          </div>
+
+          <h1 className={isDark ? 'neon-title' : ''} style={{
+            fontSize: 28, letterSpacing: 7, fontFamily: "'Syne',sans-serif", fontWeight: 800,
+            margin: '0 0 8px',
+            background: t.gradientAccent,
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>ABSENSI</h1>
+          <p style={{ color: t.textDim, fontSize: 10, letterSpacing: 3, margin: 0 }}>
+            SISTEM MANAJEMEN KEHADIRAN
+          </p>
         </div>
 
-        {/* PIN Display */}
+        {/* PIN display */}
         <div style={{ animation: shake ? 'shake 0.4s ease' : 'none' }}>
-          <div style={{
-            background: t.bgCard,
-            border:`1px solid ${err ? t.danger : t.borderSub}`,
-            borderRadius:16, padding:'18px 20px', marginBottom:20,
-            boxShadow: err ? `0 0 0 3px ${t.dangerDim}` : t.shadow,
-            transition:'border-color 0.2s, box-shadow 0.2s',
-          }}>
-            <div style={{ minHeight:38, display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
+          <div
+            className={`${isDark ? 'holo-border scanlines scan-sweep' : ''}`}
+            style={{
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+              border: `1px solid ${err ? t.danger : isDark ? 'rgba(74,240,200,0.35)' : t.border}`,
+              borderRadius: 20, padding: '22px 24px', marginBottom: 20,
+              position: 'relative', overflow: 'hidden',
+              boxShadow: err
+                ? `0 0 0 3px ${t.dangerDim}, 0 8px 32px rgba(0,0,0,0.35)`
+                : isDark ? '0 8px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset' : t.cardShadow,
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}>
+            {/* Holographic shimmer overlay — dark mode */}
+            {isDark && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: 20, pointerEvents: 'none',
+                background: 'linear-gradient(135deg, rgba(74,240,200,0.04) 0%, rgba(0,200,255,0.03) 40%, rgba(167,139,250,0.04) 70%, rgba(255,107,157,0.03) 100%)',
+                backgroundSize: '300% 300%',
+                animation: 'holo-shift 5s ease infinite',
+                zIndex: 0,
+              }} />
+            )}
+            <div style={{ minHeight: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, position: 'relative', zIndex: 1 }}>
               {pin.length === 0
-                ? <span style={{ color:t.textDim, fontSize:11, letterSpacing:2 }}>MASUKKAN PIN</span>
+                ? <span style={{ color: t.textDim, fontSize: 11, letterSpacing: 3 }}>MASUKKAN PIN</span>
                 : Array.from({ length: Math.max(6, pin.length) }).map((_, i) => (
                     <div key={i} style={{
-                      width:11, height:11, borderRadius:'50%',
-                      background: i < pin.length ? t.accent : t.borderInput,
-                      transition:'all .15s',
-                      transform: i < pin.length ? 'scale(1.25)' : 'scale(1)',
-                      boxShadow: i < pin.length ? `0 0 6px ${t.accent}80` : 'none',
+                      width: 12, height: 12, borderRadius: '50%',
+                      background: i < pin.length
+                        ? t.gradientAccent
+                        : isDark ? '#1e1e3a' : t.borderInput,
+                      transition: 'all .2s cubic-bezier(.34,1.56,.64,1)',
+                      transform: i < pin.length ? 'scale(1.35)' : 'scale(1)',
+                      boxShadow: i < pin.length
+                        ? `0 0 14px ${t.accent}90, 0 0 28px ${t.accent}30`
+                        : 'none',
                     }} />
                   ))
               }
@@ -87,16 +186,21 @@ export default function PinScreen({ employees, onLogin }) {
           </div>
         </div>
 
-        {err && <p style={{ color:t.danger, fontSize:11, marginBottom:16, letterSpacing:1 }}>{err}</p>}
+        {err && (
+          <p style={{ color: t.danger, fontSize: 11, marginBottom: 16, letterSpacing: 1, animation: 'slide-up .2s ease' }}>
+            {err}
+          </p>
+        )}
 
         {/* Numpad */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
           {keys.map(k => {
             const isConfirm = k === '✓'
             const isDel = k === '⌫'
             return (
               <button
                 key={k}
+                className="btn-lift"
                 onClick={() => {
                   setErr('')
                   if (isDel) setPin(p => p.slice(0, -1))
@@ -104,27 +208,24 @@ export default function PinScreen({ employees, onLogin }) {
                   else if (pin.length < 6) setPin(p => p + k)
                 }}
                 style={{
-                  padding:'18px 8px',
+                  padding: '19px 8px',
                   background: isConfirm
-                    ? t.accent
-                    : isDel ? t.bgCardAlt : t.bgCard,
+                    ? t.gradientAccent
+                    : isDark
+                      ? 'rgba(255,255,255,0.04)'
+                      : isDel ? t.bgCardAlt : 'rgba(255,255,255,0.92)',
+                  backdropFilter: isDark ? 'blur(12px)' : 'none',
+                  WebkitBackdropFilter: isDark ? 'blur(12px)' : 'none',
                   color: isConfirm ? t.accentText : isDel ? t.textMuted : t.text,
-                  border:`1px solid ${isConfirm ? t.accentBorder : t.border}`,
-                  borderRadius:13,
-                  cursor:'pointer',
-                  fontSize:18,
-                  fontFamily:"'Space Mono',monospace",
+                  border: `1px solid ${isConfirm ? 'transparent' : isDark ? 'rgba(255,255,255,0.08)' : t.border}`,
+                  borderRadius: 15,
+                  cursor: 'pointer',
+                  fontSize: 20,
+                  fontFamily: "'Space Mono',monospace",
                   fontWeight: isConfirm ? 700 : 400,
-                  transition:'all .15s',
-                  boxShadow: isConfirm ? (isDark ? `0 0 16px ${t.accentDim}` : `0 3px 10px ${t.accentDim}`) : t.shadow,
-                }}
-                onMouseEnter={e => {
-                  if (!isConfirm) e.currentTarget.style.background = t.bgHover
-                  e.currentTarget.style.borderColor = isConfirm ? t.accent : t.borderInput
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = isConfirm ? t.accent : isDel ? t.bgCardAlt : t.bgCard
-                  e.currentTarget.style.borderColor = isConfirm ? t.accentBorder : t.border
+                  boxShadow: isConfirm
+                    ? t.glowAccent
+                    : isDark ? '0 4px 16px rgba(0,0,0,0.35)' : t.cardShadow,
                 }}
               >{k}</button>
             )
