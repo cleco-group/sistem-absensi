@@ -55,3 +55,21 @@ values
   ('E002', 'Sari Dewi',     'Kasir',        '5678', '09:00', '18:00', 'harian',  150000,  0,      0,     0),
   ('E003', 'Andi Pratama',  'Supervisor',   '9999', '07:30', '16:30', 'bulanan', 5000000, 200000, 50000, 100000)
 on conflict (emp_code) do nothing;
+
+-- 6. Tabel Pengaturan (Settings)
+create table if not exists settings (
+  id          text primary key default 'global',
+  lat         numeric,
+  lng         numeric,
+  radius      int default 100, -- dalam meter
+  updated_at  timestamptz default now()
+);
+
+-- Masukkan data awal pengaturan lokasi (default: Jakarta)
+insert into settings (id, lat, lng, radius)
+values ('global', -6.200000, 106.816666, 100)
+on conflict (id) do nothing;
+
+-- Aktifkan RLS untuk settings
+alter table settings enable row level security;
+create policy "allow_all_settings" on settings for all using (true) with check (true);

@@ -59,13 +59,74 @@ export function useAttendance(dateStart, dateEnd) {
 
   useEffect(() => { fetch() }, [fetch])
 
-  const upsertAttendance = async (payload) => {
+  const uploadPhoto = async (base64, fileName) => {
+    // Convert base64 to blob
+    const res = await fetch(base64)
+    const blob = await res.blob()
+    
+    const filePath = `attendance/${Date.now()}-${fileName}.jpg`
+    const { data, error } = await supabase.storage
+      .from('photos')
+      .upload(filePath, blob)
+    
+    if (error) throw error
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('photos')
+      .getPublicUrl(filePath)
+      
+    return publicUrl
+  }
+
+  const upsertAttendance = async (payload, photoBase64) => {
+    let finalPayload = { ...payload }
+    
+    if (photoBase64) {
+      const fileName = `${payload.employee_id}-${payload.tanggal}`
+      const photoUrl = await uploadPhoto(photoBase64, fileName)
+      if (payload.jam_pulang) {
+        finalPayload.foto_pulang = photoUrl
+      } else {
+        finalPayload.foto_masuk = photoUrl
+      }
+    }
+
     const { error } = await supabase
       .from('attendance')
-      .upsert(payload, { onConflict: 'employee_id,tanggal' })
+      .upsert(finalPayload, { onConflict: 'employee_id,tanggal' })
     if (error) throw error
     await fetch()
   }
 
   return { records, loading, refetch: fetch, upsertAttendance }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+export function useSettings() {
+  const [settings, setSettings] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetch = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 'global')
+      .single()
+    if (!error) setSettings(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetch() }, [fetch])
+
+  const updateSettings = async (payload) => {
+    const { error } = await supabase
+      .from('settings')
+      .update(payload)
+      .eq('id', 'global')
+    if (error) throw error
+    await fetch()
+  }
+
+  return { settings, loading, refetch: fetch, updateSettings }
 }

@@ -66,3 +66,37 @@ export const minutesDiff = (a, b) => {
   const [bh, bm] = b.split(':').map(Number)
   return (ah * 60 + am) - (bh * 60 + bm)
 }
+
+// ─── Geolocation helpers ─────────────────────────────────────────────────────
+/**
+ * Hitung jarak antara dua titik koordinat (Haversine formula)
+ * @returns {number} jarak dalam meter
+ */
+export function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3 // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δφ = (lat2 - lat1) * Math.PI / 180
+  const Δλ = (lon2 - lon1) * Math.PI / 180
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return R * c
+}
+
+export function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation tidak didukung oleh browser Anda.'))
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => reject(err),
+        { enableHighAccuracy: true }
+      )
+    }
+  })
+}
