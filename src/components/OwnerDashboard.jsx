@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useEmployees, useAttendance, useSettings } from '../hooks/useData'
-import { monthRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition } from '../lib/utils'
+import { monthRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition, todayStr } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
 
@@ -15,7 +15,7 @@ const Avatar = ({ name, size = 40 }) => {
 }
 
 export default function OwnerDashboard({ onLogout }) {
-  const [tab, setTab] = useState('karyawan')
+  const [tab, setTab] = useState('ringkasan')
   const { isDark, toggleTheme } = useTheme()
   const t = isDark ? DARK : LIGHT
 
@@ -34,18 +34,57 @@ export default function OwnerDashboard({ onLogout }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display:'flex', background:t.bgCard, borderBottom:`1px solid ${t.border}` }}>
-        {['karyawan', 'absensi', 'gaji', 'pengaturan'].map(id => (
-          <button key={id} onClick={() => setTab(id)} style={{ flex:1, padding:'14px 0', background:'none', border:'none', borderBottom:tab === id ? `2px solid ${t.accent}` : 'none', color:tab === id ? t.accent : t.textMuted, fontSize:10, fontWeight:tab === id ? 700 : 400, cursor:'pointer', letterSpacing:1 }}>{id.toUpperCase()}</button>
+      <div style={{ display:'flex', background:t.bgCard, borderBottom:`1px solid ${t.border}`, overflowX:'auto' }}>
+        {['ringkasan', 'karyawan', 'absensi', 'gaji', 'pengaturan'].map(id => (
+          <button key={id} onClick={() => setTab(id)} style={{ flex:1, minWidth:100, padding:'14px 0', background:'none', border:'none', borderBottom:tab === id ? `2px solid ${t.accent}` : 'none', color:tab === id ? t.accent : t.textMuted, fontSize:10, fontWeight:tab === id ? 700 : 400, cursor:'pointer', letterSpacing:1 }}>{id.toUpperCase()}</button>
         ))}
       </div>
 
       <div style={{ padding:20 }}>
+        {tab === 'ringkasan' && <RingkasanTab />}
         {tab === 'karyawan' && <KaryawanTab />}
         {tab === 'absensi' && <AbsensiTab />}
         {tab === 'gaji' && <GajiTab />}
         {tab === 'pengaturan' && <SettingsTab />}
       </div>
+    </div>
+  )
+}
+
+function RingkasanTab() {
+  const today = todayStr()
+  const { employees } = useEmployees()
+  const { records } = useAttendance(today, today)
+  const { isDark } = useTheme()
+  const t = isDark ? DARK : LIGHT
+
+  const stats = useMemo(() => {
+    const hadir = records.filter(r => r.jam_masuk).length
+    const telat = records.filter(r => r.status_masuk === 'telat').length
+    const belum = employees.length - hadir
+    return { hadir, telat, belum, total: employees.length }
+  }, [employees, records])
+
+  return (
+    <div>
+      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>RINGKASAN HARI INI</p>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+        <StatCard label="HADIR" value={stats.hadir} color={t.accent} />
+        <StatCard label="TELAT" value={stats.telat} color={t.warn} />
+        <StatCard label="BELUM ABSEN" value={stats.belum} color={t.textMuted} />
+        <StatCard label="TOTAL KARYAWAN" value={stats.total} color={t.text} />
+      </div>
+    </div>
+  )
+}
+
+const StatCard = ({ label, value, color }) => {
+  const { isDark } = useTheme()
+  const t = isDark ? DARK : LIGHT
+  return (
+    <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16, textAlign:'center' }}>
+      <p style={{ fontSize:9, color:t.textMuted, margin:'0 0 8px', letterSpacing:1 }}>{label}</p>
+      <p style={{ fontSize:24, fontWeight:800, color, margin:0 }}>{value}</p>
     </div>
   )
 }
@@ -109,14 +148,41 @@ function KaryawanTab() {
 }
 
 function AbsensiTab() {
-  const range = monthRange()
-  const { records } = useAttendance(range.start, range.end)
+  const [dateRange, setDateRange] = useState(monthRange())
+  const { records } = useAttendance(dateRange.start, dateRange.end)
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
 
+  const exportCSV = () => {
+    const headers = ['Nama', 'Tanggal', 'Jam Masuk', 'Status Masuk', 'Jam Pulang']
+    const rows = records.map(r => [
+      r.employees?.name,
+      r.tanggal,
+      r.jam_masuk || '-',
+      r.status_masuk || '-',
+      r.jam_pulang || '-'
+    ])
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n")
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `absensi_${dateRange.start}_${dateRange.end}.csv`)
+    link.click()
+  }
+
   return (
     <div>
-      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>LOG ABSENSI BULAN INI</p>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <p style={{ color:t.accent, fontSize:11, fontWeight:700 }}>LOG ABSENSI</p>
+        <button onClick={exportCSV} style={{ background:t.bgCardAlt, color:t.text, border:`1px solid ${t.border}`, borderRadius:8, padding:'6px 12px', fontSize:10, cursor:'pointer' }}>📥 EKSPOR CSV</button>
+      </div>
+      
+      <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+        <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+        <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+      </div>
+
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
         {records.map(r => (
           <div key={r.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:12, padding:12 }}>
@@ -144,19 +210,44 @@ function AbsensiTab() {
 }
 
 function GajiTab() {
-  const range = monthRange()
+  const [dateRange, setDateRange] = useState(monthRange())
   const { employees } = useEmployees()
-  const { records } = useAttendance(range.start, range.end)
+  const { records } = useAttendance(dateRange.start, dateRange.end)
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
 
+  const exportCSV = () => {
+    const headers = ['Nama', 'Gaji Bersih', 'Hadir', 'Hari Kerja', 'Telat']
+    const rows = employees.map(emp => {
+      const empRecs = records.filter(r => r.employee_id === emp.id)
+      const gaji = hitungGaji(emp, empRecs, dateRange.start, dateRange.end)
+      return [emp.name, gaji.gajiBersih, gaji.hariHadir, gaji.hariKerja, gaji.jumlahTelat]
+    })
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n")
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `gaji_${dateRange.start}_${dateRange.end}.csv`)
+    link.click()
+  }
+
   return (
     <div>
-      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>REKAP GAJI: {fmtMonth(range.start)}</p>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <p style={{ color:t.accent, fontSize:11, fontWeight:700 }}>REKAP GAJI</p>
+        <button onClick={exportCSV} style={{ background:t.bgCardAlt, color:t.text, border:`1px solid ${t.border}`, borderRadius:8, padding:'6px 12px', fontSize:10, cursor:'pointer' }}>📥 EKSPOR CSV</button>
+      </div>
+
+      <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+        <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+        <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+      </div>
+
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
         {employees.map(emp => {
           const empRecs = records.filter(r => r.employee_id === emp.id)
-          const gaji = hitungGaji(emp, empRecs, range.start, range.end)
+          const gaji = hitungGaji(emp, empRecs, dateRange.start, dateRange.end)
           return (
             <div key={emp.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
