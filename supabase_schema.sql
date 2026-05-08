@@ -73,3 +73,26 @@ on conflict (id) do nothing;
 -- Aktifkan RLS untuk settings
 alter table settings enable row level security;
 create policy "allow_all_settings" on settings for all using (true) with check (true);
+
+-- 7. Tabel Outlet
+create table if not exists outlets (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  address     text,
+  lat         numeric not null,
+  lng         numeric not null,
+  radius      int default 100,
+  created_at  timestamptz default now()
+);
+
+-- Tambahkan kolom outlet_id ke tabel employees
+alter table employees add column if not exists outlet_id uuid references outlets(id) on delete set null;
+
+-- Masukkan data outlet awal
+insert into outlets (name, address, lat, lng, radius)
+values ('Outlet Utama', 'Alamat Pusat', -6.200000, 106.816666, 100)
+on conflict do nothing;
+
+-- Aktifkan RLS untuk outlets
+alter table outlets enable row level security;
+create policy "allow_all_outlets" on outlets for all using (true) with check (true);

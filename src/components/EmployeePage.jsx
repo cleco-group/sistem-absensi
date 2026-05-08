@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAttendance, useSettings } from '../hooks/useData'
+import { useAttendance, useEmployees } from '../hooks/useData'
 import { todayStr, timeNowStr, fmtDate, fmtDay, isLate, minutesDiff, getDistance, getCurrentPosition } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
@@ -18,7 +18,6 @@ const Avatar = ({ name, size = 40 }) => {
 export default function EmployeePage({ employee, allEmployees, onLogout }) {
   const today = todayStr()
   const { records, upsertAttendance, loading: loadingAtt } = useAttendance(today, today)
-  const { settings } = useSettings()
   const [selected, setSelected] = useState(null)
   const [showCam, setShowCam]   = useState(false)
   const [toast, setToast]       = useState(null)
@@ -45,14 +44,17 @@ export default function EmployeePage({ employee, allEmployees, onLogout }) {
     setShowCam(false)
     setProcessing(true)
     try {
-      // 1. Cek Lokasi jika diatur
-      if (settings && settings.lat && settings.lng) {
-        setToast({ msg: 'Memverifikasi lokasi...', ok: true })
+      // 1. Cek Lokasi berdasarkan Outlet Karyawan
+      const empWithOutlet = allEmployees.find(e => e.id === selected.id)
+      const outlet = empWithOutlet?.outlets // This comes from the join in useEmployees
+      
+      if (outlet && outlet.lat && outlet.lng) {
+        setToast({ msg: 'Memverifikasi lokasi outlet...', ok: true })
         const pos = await getCurrentPosition()
-        const dist = getDistance(pos.lat, pos.lng, settings.lat, settings.lng)
+        const dist = getDistance(pos.lat, pos.lng, outlet.lat, outlet.lng)
         
-        if (dist > settings.radius) {
-          throw new Error(`Anda berada di luar jangkauan (${Math.round(dist)}m). Jarak maksimal ${settings.radius}m.`)
+        if (dist > outlet.radius) {
+          throw new Error(`Anda berada di luar jangkauan outlet (${Math.round(dist)}m). Jarak maksimal ${outlet.radius}m.`)
         }
       }
 
@@ -71,7 +73,7 @@ export default function EmployeePage({ employee, allEmployees, onLogout }) {
         payload.status_masuk = late ? 'telat' : 'tepat'
         payload.menit_telat  = late ? minutesDiff(now, selected.jam_masuk) : 0
       } else {
-        payload.status_pulang = 'tepat' // bisa dikembangkan logic pulang awal
+        payload.status_pulang = 'tepat'
       }
 
       await upsertAttendance(payload, base64)
@@ -164,7 +166,7 @@ export default function EmployeePage({ employee, allEmployees, onLogout }) {
                   <Avatar name={emp.name} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <p style={{ color:t.text, fontSize:14, fontWeight:700, margin:'0 0 2px' }}>{emp.name}</p>
-                    <p style={{ color:t.textMuted, fontSize:10, margin:'0 0 8px' }}>{emp.role} · {emp.jam_masuk}–{emp.jam_pulang}</p>
+                    <p style={{ color:t.textMuted, fontSize:10, margin:'0 0 8px' }}>{emp.role} · {emp.outlets?.name || 'Tanpa Outlet'}</p>
                     {rec?.jam_masuk ? (
                       <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
                         <span style={{ 

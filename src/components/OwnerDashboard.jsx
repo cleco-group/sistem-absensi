@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useEmployees, useAttendance, useSettings } from '../hooks/useData'
+import { useEmployees, useAttendance, useOutlets } from '../hooks/useData'
 import { monthRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition, todayStr } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
@@ -35,7 +35,7 @@ export default function OwnerDashboard({ onLogout }) {
 
       {/* Tabs */}
       <div style={{ display:'flex', background:t.bgCard, borderBottom:`1px solid ${t.border}`, overflowX:'auto' }}>
-        {['ringkasan', 'karyawan', 'absensi', 'gaji', 'pengaturan'].map(id => (
+        {['ringkasan', 'karyawan', 'outlet', 'absensi', 'gaji'].map(id => (
           <button key={id} onClick={() => setTab(id)} style={{ flex:1, minWidth:100, padding:'14px 0', background:'none', border:'none', borderBottom:tab === id ? `2px solid ${t.accent}` : 'none', color:tab === id ? t.accent : t.textMuted, fontSize:10, fontWeight:tab === id ? 700 : 400, cursor:'pointer', letterSpacing:1 }}>{id.toUpperCase()}</button>
         ))}
       </div>
@@ -43,9 +43,9 @@ export default function OwnerDashboard({ onLogout }) {
       <div style={{ padding:20 }}>
         {tab === 'ringkasan' && <RingkasanTab />}
         {tab === 'karyawan' && <KaryawanTab />}
+        {tab === 'outlet' && <OutletTab />}
         {tab === 'absensi' && <AbsensiTab />}
         {tab === 'gaji' && <GajiTab />}
-        {tab === 'pengaturan' && <SettingsTab />}
       </div>
     </div>
   )
@@ -91,6 +91,7 @@ const StatCard = ({ label, value, color }) => {
 
 function KaryawanTab() {
   const { employees, upsertEmployee, deleteEmployee } = useEmployees()
+  const { outlets } = useOutlets()
   const [showForm, setShowForm] = useState(false)
   const [editData, setEditData] = useState(null)
   const { isDark } = useTheme()
@@ -100,6 +101,12 @@ function KaryawanTab() {
     e.preventDefault()
     const fd = new FormData(e.target)
     const data = Object.fromEntries(fd.entries())
+    // Ensure numeric values
+    data.gaji_pokok = Number(data.gaji_pokok)
+    data.potongan_absen = Number(data.potongan_absen)
+    data.potongan_telat = Number(data.potongan_telat)
+    data.bonus_rajin = Number(data.bonus_rajin)
+    
     await upsertEmployee({ ...editData, ...data })
     setShowForm(false)
     setEditData(null)
@@ -115,12 +122,48 @@ function KaryawanTab() {
       {showForm && (
         <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:20, marginBottom:20 }}>
           <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            <input name="name" defaultValue={editData?.name} placeholder="Nama Lengkap" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
-            <input name="emp_code" defaultValue={editData?.emp_code} placeholder="Kode Karyawan (E001)" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
-            <input name="pin" defaultValue={editData?.pin} placeholder="PIN (6 Digit)" required maxLength={6} style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
-            <div style={{ display:'flex', gap:10 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <input name="name" defaultValue={editData?.name} placeholder="Nama Lengkap" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              <input name="emp_code" defaultValue={editData?.emp_code} placeholder="Kode (E001)" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <input name="role" defaultValue={editData?.role} placeholder="Jabatan" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              <input name="pin" defaultValue={editData?.pin} placeholder="PIN (6 Digit)" required maxLength={6} style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            </div>
+            
+            <select name="outlet_id" defaultValue={editData?.outlet_id} required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }}>
+              <option value="">Pilih Outlet</option>
+              {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label style={{ fontSize:9, color:t.textMuted }}>JAM MASUK</label>
+                <input name="jam_masuk" type="time" defaultValue={editData?.jam_masuk || '08:00'} required style={{ width:'100%', padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              </div>
+              <div>
+                <label style={{ fontSize:9, color:t.textMuted }}>JAM PULANG</label>
+                <input name="jam_pulang" type="time" defaultValue={editData?.jam_pulang || '17:00'} required style={{ width:'100%', padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              </div>
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <select name="tipe_gaji" defaultValue={editData?.tipe_gaji || 'bulanan'} style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }}>
+                <option value="bulanan">Bulanan</option>
+                <option value="harian">Harian</option>
+              </select>
+              <input name="gaji_pokok" type="number" defaultValue={editData?.gaji_pokok || 0} placeholder="Gaji Pokok" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+              <input name="potongan_absen" type="number" defaultValue={editData?.potongan_absen || 0} placeholder="Pot. Absen" style={{ padding:10, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+              <input name="potongan_telat" type="number" defaultValue={editData?.potongan_telat || 0} placeholder="Pot. Telat" style={{ padding:10, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+              <input name="bonus_rajin" type="number" defaultValue={editData?.bonus_rajin || 0} placeholder="Bonus Rajin" style={{ padding:10, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
+            </div>
+
+            <div style={{ display:'flex', gap:10, marginTop:10 }}>
               <button type="button" onClick={() => setShowForm(false)} style={{ flex:1, padding:12, borderRadius:8, background:'none', border:`1px solid ${t.border}`, color:t.text }}>BATAL</button>
-              <button type="submit" style={{ flex:2, padding:12, borderRadius:8, background:t.accent, color:t.accentText, border:'none', fontWeight:700 }}>SIMPAN</button>
+              <button type="submit" style={{ flex:2, padding:12, borderRadius:8, background:t.accent, color:t.accentText, border:'none', fontWeight:700 }}>SIMPAN KARYAWAN</button>
             </div>
           </form>
         </div>
@@ -133,12 +176,92 @@ function KaryawanTab() {
               <Avatar name={emp.name} />
               <div>
                 <p style={{ fontSize:13, fontWeight:700, margin:0 }}>{emp.name}</p>
-                <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{emp.role} · {emp.emp_code}</p>
+                <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{emp.role} · {emp.outlets?.name || 'No Outlet'}</p>
+                <p style={{ fontSize:9, color:t.accent, margin:0 }}>{fmtRupiah(emp.gaji_pokok)} ({emp.tipe_gaji})</p>
               </div>
             </div>
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={() => { setEditData(emp); setShowForm(true) }} style={{ background:t.accentDim, color:t.accent, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10 }}>Edit</button>
               <button onClick={() => deleteEmployee(emp.id)} style={{ background:t.dangerDim, color:t.danger, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10 }}>Hapus</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OutletTab() {
+  const { outlets, upsertOutlet, deleteOutlet } = useOutlets()
+  const [showForm, setShowForm] = useState(false)
+  const [editData, setEditData] = useState(null)
+  const { isDark } = useTheme()
+  const t = isDark ? DARK : LIGHT
+
+  const handleSetCurrentLocation = async () => {
+    try {
+      const pos = await getCurrentPosition()
+      const form = document.getElementById('outlet-form')
+      form.lat.value = pos.lat
+      form.lng.value = pos.lng
+    } catch (err) {
+      alert('Gagal mengambil lokasi: ' + err.message)
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const fd = new FormData(e.target)
+    const data = Object.fromEntries(fd.entries())
+    data.lat = Number(data.lat)
+    data.lng = Number(data.lng)
+    data.radius = Number(data.radius)
+    await upsertOutlet({ ...editData, ...data })
+    setShowForm(false)
+    setEditData(null)
+  }
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <p style={{ color:t.accent, fontSize:11, fontWeight:700 }}>MANAJEMEN OUTLET</p>
+        <button onClick={() => setShowForm(true)} style={{ background:t.accent, color:t.accentText, border:'none', borderRadius:8, padding:'8px 16px', fontSize:11, fontWeight:700, cursor:'pointer' }}>+ OUTLET</button>
+      </div>
+
+      {showForm && (
+        <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:20, marginBottom:20 }}>
+          <form id="outlet-form" onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <input name="name" defaultValue={editData?.name} placeholder="Nama Outlet" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            <input name="address" defaultValue={editData?.address} placeholder="Alamat" style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <input name="lat" type="number" step="any" defaultValue={editData?.lat} placeholder="Latitude" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              <input name="lng" type="number" step="any" defaultValue={editData?.lng} placeholder="Longitude" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            </div>
+            <input name="radius" type="number" defaultValue={editData?.radius || 100} placeholder="Radius (Meter)" required style={{ padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+            
+            <button type="button" onClick={handleSetCurrentLocation} style={{ padding:10, borderRadius:8, background:t.bgCardAlt, border:`1px solid ${t.border}`, color:t.text, fontSize:10 }}>📍 GUNAKAN LOKASI SAYA SAAT INI</button>
+
+            <div style={{ display:'flex', gap:10, marginTop:10 }}>
+              <button type="button" onClick={() => setShowForm(false)} style={{ flex:1, padding:12, borderRadius:8, background:'none', border:`1px solid ${t.border}`, color:t.text }}>BATAL</button>
+              <button type="submit" style={{ flex:2, padding:12, borderRadius:8, background:t.accent, color:t.accentText, border:'none', fontWeight:700 }}>SIMPAN OUTLET</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        {outlets.map(o => (
+          <div key={o.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div>
+                <p style={{ fontSize:14, fontWeight:700, margin:0 }}>{o.name}</p>
+                <p style={{ fontSize:10, color:t.textMuted, margin:'4px 0' }}>{o.address || 'No Address'}</p>
+                <p style={{ fontSize:9, color:t.accent, margin:0 }}>📍 {o.lat}, {o.lng} (Radius: {o.radius}m)</p>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={() => { setEditData(o); setShowForm(true) }} style={{ background:t.accentDim, color:t.accent, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10 }}>Edit</button>
+                <button onClick={() => deleteOutlet(o.id)} style={{ background:t.dangerDim, color:t.danger, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10 }}>Hapus</button>
+              </div>
             </div>
           </div>
         ))}
@@ -154,9 +277,10 @@ function AbsensiTab() {
   const t = isDark ? DARK : LIGHT
 
   const exportCSV = () => {
-    const headers = ['Nama', 'Tanggal', 'Jam Masuk', 'Status Masuk', 'Jam Pulang']
+    const headers = ['Nama', 'Outlet', 'Tanggal', 'Jam Masuk', 'Status Masuk', 'Jam Pulang']
     const rows = records.map(r => [
       r.employees?.name,
+      r.employees?.outlets?.name || '-',
       r.tanggal,
       r.jam_masuk || '-',
       r.status_masuk || '-',
@@ -187,7 +311,10 @@ function AbsensiTab() {
         {records.map(r => (
           <div key={r.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:12, padding:12 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-              <p style={{ fontSize:12, fontWeight:700, margin:0 }}>{r.employees?.name}</p>
+              <div>
+                <p style={{ fontSize:12, fontWeight:700, margin:0 }}>{r.employees?.name}</p>
+                <p style={{ fontSize:9, color:t.textMuted, margin:0 }}>{r.employees?.outlets?.name || 'No Outlet'}</p>
+              </div>
               <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{r.tanggal}</p>
             </div>
             <div style={{ display:'flex', gap:10 }}>
@@ -216,29 +343,9 @@ function GajiTab() {
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
 
-  const exportCSV = () => {
-    const headers = ['Nama', 'Gaji Bersih', 'Hadir', 'Hari Kerja', 'Telat']
-    const rows = employees.map(emp => {
-      const empRecs = records.filter(r => r.employee_id === emp.id)
-      const gaji = hitungGaji(emp, empRecs, dateRange.start, dateRange.end)
-      return [emp.name, gaji.gajiBersih, gaji.hariHadir, gaji.hariKerja, gaji.jumlahTelat]
-    })
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n")
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", `gaji_${dateRange.start}_${dateRange.end}.csv`)
-    link.click()
-  }
-
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-        <p style={{ color:t.accent, fontSize:11, fontWeight:700 }}>REKAP GAJI</p>
-        <button onClick={exportCSV} style={{ background:t.bgCardAlt, color:t.text, border:`1px solid ${t.border}`, borderRadius:8, padding:'6px 12px', fontSize:10, cursor:'pointer' }}>📥 EKSPOR CSV</button>
-      </div>
-
+      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>REKAP GAJI</p>
       <div style={{ display:'flex', gap:10, marginBottom:20 }}>
         <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
         <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
@@ -251,7 +358,10 @@ function GajiTab() {
           return (
             <div key={emp.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                <p style={{ fontSize:13, fontWeight:700, margin:0 }}>{emp.name}</p>
+                <div>
+                  <p style={{ fontSize:13, fontWeight:700, margin:0 }}>{emp.name}</p>
+                  <p style={{ fontSize:9, color:t.textMuted, margin:0 }}>{emp.outlets?.name || 'No Outlet'}</p>
+                </div>
                 <p style={{ fontSize:14, fontWeight:800, color:t.accent, margin:0 }}>{fmtRupiah(gaji.gajiBersih)}</p>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:10, color:t.textMuted }}>
@@ -262,72 +372,6 @@ function GajiTab() {
           )
         })}
       </div>
-    </div>
-  )
-}
-
-function SettingsTab() {
-  const { settings, updateSettings, loading } = useSettings()
-  const [saving, setSaving] = useState(false)
-  const { isDark } = useTheme()
-  const t = isDark ? DARK : LIGHT
-
-  const handleSetCurrentLocation = async () => {
-    try {
-      const pos = await getCurrentPosition()
-      const form = document.getElementById('settings-form')
-      form.lat.value = pos.lat
-      form.lng.value = pos.lng
-    } catch (err) {
-      alert('Gagal mengambil lokasi: ' + err.message)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    const fd = new FormData(e.target)
-    const data = {
-      lat: Number(fd.get('lat')),
-      lng: Number(fd.get('lng')),
-      radius: Number(fd.get('radius'))
-    }
-    try {
-      await updateSettings(data)
-      alert('Pengaturan berhasil disimpan!')
-    } catch (err) {
-      alert('Gagal menyimpan: ' + err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) return <p>Memuat pengaturan...</p>
-
-  return (
-    <div>
-      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>PENGATURAN LOKASI ABSENSI</p>
-      <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:20 }}>
-        <form id="settings-form" onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:16 }}>
-          <div>
-            <label style={{ fontSize:10, color:t.textMuted, display:'block', marginBottom:6 }}>LATITUDE</label>
-            <input name="lat" defaultValue={settings?.lat} step="any" type="number" required style={{ width:'100%', padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text, boxSizing:'border-box' }} />
-          </div>
-          <div>
-            <label style={{ fontSize:10, color:t.textMuted, display:'block', marginBottom:6 }}>LONGITUDE</label>
-            <input name="lng" defaultValue={settings?.lng} step="any" type="number" required style={{ width:'100%', padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text, boxSizing:'border-box' }} />
-          </div>
-          <div>
-            <label style={{ fontSize:10, color:t.textMuted, display:'block', marginBottom:6 }}>RADIUS JANGKAUAN (METER)</label>
-            <input name="radius" defaultValue={settings?.radius} type="number" required style={{ width:'100%', padding:12, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text, boxSizing:'border-box' }} />
-          </div>
-          
-          <button type="button" onClick={handleSetCurrentLocation} style={{ padding:12, borderRadius:8, background:t.bgCardAlt, border:`1px solid ${t.border}`, color:t.text, cursor:'pointer', fontSize:11 }}>📍 GUNAKAN LOKASI SAYA SAAT INI</button>
-          
-          <button type="submit" disabled={saving} style={{ padding:14, borderRadius:8, background:t.accent, color:t.accentText, border:'none', fontWeight:700, cursor:'pointer', opacity:saving?0.6:1 }}>{saving ? 'MENYIMPAN...' : 'SIMPAN PENGATURAN'}</button>
-        </form>
-      </div>
-      <p style={{ fontSize:10, color:t.textMuted, marginTop:16, lineHeight:1.5 }}>* Karyawan hanya dapat melakukan absensi jika berada dalam radius yang ditentukan dari titik koordinat di atas.</p>
     </div>
   )
 }

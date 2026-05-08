@@ -1,6 +1,44 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
+// ─── Outlets ──────────────────────────────────────────────────────────────────
+export function useOutlets() {
+  const [outlets, setOutlets] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const fetch = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('outlets')
+      .select('*')
+      .order('name')
+    if (!error) setOutlets(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetch() }, [fetch])
+
+  const upsertOutlet = async (outlet) => {
+    const { id, created_at, ...payload } = outlet
+    if (id) {
+      const { error } = await supabase.from('outlets').update(payload).eq('id', id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase.from('outlets').insert(payload)
+      if (error) throw error
+    }
+    await fetch()
+  }
+
+  const deleteOutlet = async (id) => {
+    const { error } = await supabase.from('outlets').delete().eq('id', id)
+    if (error) throw error
+    await fetch()
+  }
+
+  return { outlets, loading, refetch: fetch, upsertOutlet, deleteOutlet }
+}
+
 // ─── Employees ────────────────────────────────────────────────────────────────
 export function useEmployees() {
   const [employees, setEmployees] = useState([])
@@ -10,7 +48,7 @@ export function useEmployees() {
     setLoading(true)
     const { data, error } = await supabase
       .from('employees')
-      .select('*')
+      .select('*, outlets(name)')
       .order('name')
     if (!error) setEmployees(data || [])
     setLoading(false)
@@ -19,7 +57,7 @@ export function useEmployees() {
   useEffect(() => { fetch() }, [fetch])
 
   const upsertEmployee = async (emp) => {
-    const { id, created_at, ...payload } = emp
+    const { id, created_at, outlets, ...payload } = emp
     if (id) {
       const { error } = await supabase.from('employees').update(payload).eq('id', id)
       if (error) throw error
@@ -49,7 +87,7 @@ export function useAttendance(dateStart, dateEnd) {
     setLoading(true)
     const { data, error } = await supabase
       .from('attendance')
-      .select('*, employees(name, role, emp_code)')
+      .select('*, employees(name, role, emp_code, outlet_id, outlets(lat, lng, radius))')
       .gte('tanggal', dateStart)
       .lte('tanggal', dateEnd)
       .order('tanggal', { ascending: false })
@@ -60,22 +98,34 @@ export function useAttendance(dateStart, dateEnd) {
   useEffect(() => { fetch() }, [fetch])
 
   const uploadPhoto = async (base64, fileName) => {
-    // Convert base64 to blob
-    const res = await fetch(base64)
-    const blob = await res.blob()
-    
-    const filePath = `attendance/${Date.now()}-${fileName}.jpg`
-    const { data, error } = await supabase.storage
-      .from('photos')
-      .upload(filePath, blob)
-    
-    if (error) throw error
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('photos')
-      .getPublicUrl(filePath)
+    try {
+      // Fix for "reading blob" error: Use a more robust base64 to blob conversion
+      const parts = base64.split(';base64,')
+      const contentType = parts[0].split(':')[1]
+      const raw = window.atob(parts[1])
+      const rawLength = raw.length
+      const uInt8Array = new Uint8Array(rawLength)
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i)
+      }
+      const blob = new Blob([uInt8Array], { type: contentType })
       
-    return publicUrl
+      const filePath = `attendance/${Date.now()}-${fileName}.jpg`
+      const { data, error } = await supabase.storage
+        .from('photos')
+        .upload(filePath, blob)
+      
+      if (error) throw error
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('photos')
+        .getPublicUrl(filePath)
+        
+      return publicUrl
+    } catch (err) {
+      console.error('Upload error:', err)
+      throw new Error('Gagal mengunggah foto: ' + err.message)
+    }
   }
 
   const upsertAttendance = async (payload, photoBase64) => {
