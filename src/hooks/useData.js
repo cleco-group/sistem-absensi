@@ -48,7 +48,7 @@ export function useEmployees() {
     setLoading(true)
     const { data, error } = await supabase
       .from('employees')
-      .select('*, outlets(name)')
+      .select('*, outlets(name, lat, lng, radius)')
       .order('name')
     if (!error) setEmployees(data || [])
     setLoading(false)
