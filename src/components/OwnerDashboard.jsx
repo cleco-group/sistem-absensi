@@ -3,6 +3,10 @@ import { useEmployees, useAttendance, useOutlets } from '../hooks/useData'
 import { monthRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition, todayStr } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts'
 
 const Avatar = ({ name, size = 40 }) => {
   const colors = ['#4af0c8', '#a78bfa', '#fb7185', '#38bdf8', '#fbbf24']
@@ -54,6 +58,7 @@ export default function OwnerDashboard({ onLogout }) {
 function RingkasanTab() {
   const today = todayStr()
   const { employees } = useEmployees()
+  const { outlets } = useOutlets()
   const { records } = useAttendance(today, today)
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
@@ -65,14 +70,69 @@ function RingkasanTab() {
     return { hadir, telat, belum, total: employees.length }
   }, [employees, records])
 
+  const pieData = [
+    { name: 'Hadir Tepat', value: stats.hadir - stats.telat, color: t.chartHadir },
+    { name: 'Hadir Telat', value: stats.telat, color: t.chartTelat },
+    { name: 'Belum Absen', value: stats.belum, color: t.chartAbsen },
+  ]
+
+  const outletStats = useMemo(() => {
+    return outlets.map(o => {
+      const empInOutlet = employees.filter(e => e.outlet_id === o.id)
+      const hadir = records.filter(r => empInOutlet.some(e => e.id === r.employee_id) && r.jam_masuk).length
+      return { name: o.name, hadir, total: empInOutlet.length }
+    })
+  }, [outlets, employees, records])
+
   return (
     <div>
       <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>RINGKASAN HARI INI</p>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+      
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:24 }}>
         <StatCard label="HADIR" value={stats.hadir} color={t.accent} />
         <StatCard label="TELAT" value={stats.telat} color={t.warn} />
         <StatCard label="BELUM ABSEN" value={stats.belum} color={t.textMuted} />
         <StatCard label="TOTAL KARYAWAN" value={stats.total} color={t.text} />
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns: window.innerWidth > 768 ? '1fr 1fr' : '1fr', gap:20, marginBottom:20 }}>
+        {/* Pie Chart: Status Kehadiran */}
+        <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:20, padding:20 }}>
+          <p style={{ fontSize:10, fontWeight:700, color:t.textMuted, marginBottom:16, letterSpacing:1 }}>PROPORSI KEHADIRAN</p>
+          <div style={{ height:200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ background:t.tooltipBg, border:`1px solid ${t.tooltipBorder}`, borderRadius:8, fontSize:10 }}
+                  itemStyle={{ color:t.text }}
+                />
+                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize:10, color:t.textMuted }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Bar Chart: Kehadiran per Outlet */}
+        <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:20, padding:20 }}>
+          <p style={{ fontSize:10, fontWeight:700, color:t.textMuted, marginBottom:16, letterSpacing:1 }}>KEHADIRAN PER OUTLET</p>
+          <div style={{ height:200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={outletStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke={t.border} vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill:t.textMuted, fontSize:9 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill:t.textMuted, fontSize:9 }} />
+                <Tooltip 
+                  cursor={{ fill:t.bgCardAlt }}
+                  contentStyle={{ background:t.tooltipBg, border:`1px solid ${t.tooltipBorder}`, borderRadius:8, fontSize:10 }}
+                />
+                <Bar dataKey="hadir" fill={t.accent} radius={[4, 4, 0, 0]} barSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
     </div>
   )
