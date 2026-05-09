@@ -87,7 +87,7 @@ export function useAttendance(dateStart, dateEnd) {
     setLoading(true)
     const { data, error } = await supabase
       .from('attendance')
-      .select('*, employees(name, role, emp_code, outlet_id, outlets(lat, lng, radius))')
+      .select('*, employees(name, role, emp_code, outlet_id, outlets(name, lat, lng, radius))')
       .gte('tanggal', dateStart)
       .lte('tanggal', dateEnd)
       .order('tanggal', { ascending: false })
