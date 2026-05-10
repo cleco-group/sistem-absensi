@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useEmployees, useAttendance, useOutlets } from '../hooks/useData'
-import { monthRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition, todayStr } from '../lib/utils'
+import { monthRange, weekRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition, todayStr } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
 import { 
@@ -59,9 +59,29 @@ function RingkasanTab() {
   const today = todayStr()
   const { employees } = useEmployees()
   const { outlets } = useOutlets()
-  const { records } = useAttendance(today, today)
+  const [filterType, setFilterType] = useState('hari')
+  const [customStart, setCustomStart] = useState(today)
+  const [customEnd, setCustomEnd] = useState(today)
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
+
+  const getDateRange = () => {
+    switch (filterType) {
+      case 'hari':
+        return { start: today, end: today }
+      case 'minggu':
+        return weekRange()
+      case 'bulan':
+        return monthRange()
+      case 'custom':
+        return { start: customStart, end: customEnd }
+      default:
+        return { start: today, end: today }
+    }
+  }
+
+  const dateRange = getDateRange()
+  const { records } = useAttendance(dateRange.start, dateRange.end)
 
   const stats = useMemo(() => {
     const hadir = records.filter(r => r.jam_masuk).length
@@ -86,7 +106,56 @@ function RingkasanTab() {
 
   return (
     <div>
-      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>RINGKASAN HARI INI</p>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <p style={{ color:t.accent, fontSize:11, fontWeight:700, margin:0 }}>RINGKASAN</p>
+      </div>
+
+      {/* Filter Buttons */}
+      <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
+        {['hari', 'minggu', 'bulan', 'custom'].map(type => (
+          <button
+            key={type}
+            onClick={() => setFilterType(type)}
+            style={{
+              padding:'8px 14px',
+              borderRadius:8,
+              border:`1px solid ${filterType === type ? t.accent : t.border}`,
+              background:filterType === type ? t.accentDim : 'transparent',
+              color:filterType === type ? t.accent : t.textMuted,
+              fontSize:10,
+              fontWeight:filterType === type ? 700 : 400,
+              cursor:'pointer',
+              textTransform:'uppercase',
+              letterSpacing:0.5,
+            }}
+          >
+            {type === 'hari' ? 'HARI INI' : type === 'minggu' ? 'MINGGU INI' : type === 'bulan' ? 'BULAN INI' : 'CUSTOM'}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom Date Range Inputs */}
+      {filterType === 'custom' && (
+        <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+          <input
+            type="date"
+            value={customStart}
+            onChange={e => setCustomStart(e.target.value)}
+            style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }}
+          />
+          <input
+            type="date"
+            value={customEnd}
+            onChange={e => setCustomEnd(e.target.value)}
+            style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }}
+          />
+        </div>
+      )}
+
+      {/* Period Display */}
+      <p style={{ color:t.textMuted, fontSize:9, marginBottom:20, letterSpacing:0.5 }}>
+        PERIODE: {dateRange.start} s/d {dateRange.end}
+      </p>
       
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:24 }}>
         <StatCard label="HADIR" value={stats.hadir} color={t.accent} />
@@ -138,16 +207,6 @@ function RingkasanTab() {
   )
 }
 
-const StatCard = ({ label, value, color }) => {
-  const { isDark } = useTheme()
-  const t = isDark ? DARK : LIGHT
-  return (
-    <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16, textAlign:'center' }}>
-      <p style={{ fontSize:9, color:t.textMuted, margin:'0 0 8px', letterSpacing:1 }}>{label}</p>
-      <p style={{ fontSize:24, fontWeight:800, color, margin:0 }}>{value}</p>
-    </div>
-  )
-}
 
 function KaryawanTab() {
   const { employees, upsertEmployee, deleteEmployee } = useEmployees()
@@ -231,18 +290,34 @@ function KaryawanTab() {
 
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
         {employees.map(emp => (
-          <div key={emp.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-              <Avatar name={emp.name} />
-              <div>
-                <p style={{ fontSize:13, fontWeight:700, margin:0 }}>{emp.name}</p>
-                <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{emp.role} · {emp.outlets?.name || 'No Outlet'}</p>
-                <p style={{ fontSize:9, color:t.accent, margin:0 }}>{fmtRupiah(emp.gaji_pokok)} ({emp.tipe_gaji})</p>
+          <div key={emp.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start', flex:1 }}>
+                <Avatar name={emp.name} />
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:13, fontWeight:700, margin:0 }}>{emp.name}</p>
+                  <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{emp.role} · {emp.outlets?.name || 'No Outlet'}</p>
+                  <p style={{ fontSize:9, color:t.accent, margin:'4px 0 0' }}>{fmtRupiah(emp.gaji_pokok)} ({emp.tipe_gaji})</p>
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={() => { setEditData(emp); setShowForm(true) }} style={{ background:t.accentDim, color:t.accent, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10, whiteSpace:'nowrap' }}>Edit</button>
+                <button onClick={() => deleteEmployee(emp.id)} style={{ background:t.dangerDim, color:t.danger, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10, whiteSpace:'nowrap' }}>Hapus</button>
               </div>
             </div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => { setEditData(emp); setShowForm(true) }} style={{ background:t.accentDim, color:t.accent, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10 }}>Edit</button>
-              <button onClick={() => deleteEmployee(emp.id)} style={{ background:t.dangerDim, color:t.danger, border:'none', borderRadius:6, padding:'6px 10px', fontSize:10 }}>Hapus</button>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, paddingTop:12, borderTop:`1px solid ${t.border}` }}>
+              <div>
+                <p style={{ fontSize:8, color:t.textMuted, margin:'0 0 4px', letterSpacing:0.5 }}>POT. ABSEN</p>
+                <p style={{ fontSize:11, fontWeight:600, margin:0, color:t.text }}>{fmtRupiah(emp.potongan_absen || 0)}</p>
+              </div>
+              <div>
+                <p style={{ fontSize:8, color:t.textMuted, margin:'0 0 4px', letterSpacing:0.5 }}>POT. TELAT</p>
+                <p style={{ fontSize:11, fontWeight:600, margin:0, color:t.text }}>{fmtRupiah(emp.potongan_telat || 0)}</p>
+              </div>
+              <div>
+                <p style={{ fontSize:8, color:t.textMuted, margin:'0 0 4px', letterSpacing:0.5 }}>BONUS RAJIN</p>
+                <p style={{ fontSize:11, fontWeight:600, margin:0, color:t.accent }}>{fmtRupiah(emp.bonus_rajin || 0)}</p>
+              </div>
             </div>
           </div>
         ))}
