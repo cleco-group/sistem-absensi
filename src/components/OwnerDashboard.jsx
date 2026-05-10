@@ -164,7 +164,7 @@ function RingkasanTab() {
         <StatCard label="TOTAL KARYAWAN" value={stats.total} color={t.text} />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns: window.innerWidth > 768 ? '1fr 1fr' : '1fr', gap:20, marginBottom:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:20, marginBottom:20 }}>
         {/* Pie Chart: Status Kehadiran */}
         <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:20, padding:20 }}>
           <p style={{ fontSize:10, fontWeight:700, color:t.textMuted, marginBottom:16, letterSpacing:1 }}>PROPORSI KEHADIRAN</p>
