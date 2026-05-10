@@ -18,6 +18,17 @@ const Avatar = ({ name, size = 40 }) => {
   )
 }
 
+const StatCard = ({ label, value, color }) => {
+  const { isDark } = useTheme()
+  const t = isDark ? DARK : LIGHT
+  return (
+    <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:16, padding:16, textAlign:'center' }}>
+      <p style={{ fontSize:9, color:t.textMuted, marginBottom:8, letterSpacing:1 }}>{label}</p>
+      <p style={{ fontSize:20, fontWeight:800, color:color, margin:0 }}>{value}</p>
+    </div>
+  )
+}
+
 export default function OwnerDashboard({ onLogout }) {
   const [tab, setTab] = useState('ringkasan')
   const { isDark, toggleTheme } = useTheme()
