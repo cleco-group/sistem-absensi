@@ -112,9 +112,21 @@ function RingkasanTab() {
     return outlets.map(o => {
       const empInOutlet = employees.filter(e => e.outlet_id === o.id)
       const hadir = records.filter(r => empInOutlet.some(e => e.id === r.employee_id) && r.jam_masuk).length
-      return { name: o.name, hadir, total: empInOutlet.length }
+      const telat = records.filter(r => empInOutlet.some(e => e.id === r.employee_id) && r.status_masuk === 'telat').length
+      const absen = empInOutlet.length - hadir
+      return { name: o.name, hadir, telat, absen, total: empInOutlet.length }
     })
   }, [outlets, employees, records])
+
+  const employeeStats = useMemo(() => {
+    return employees.map(emp => {
+      const empRecords = records.filter(r => r.employee_id === emp.id)
+      const hadir = empRecords.filter(r => r.jam_masuk).length
+      const telat = empRecords.filter(r => r.status_masuk === 'telat').length
+      const absen = records.length > 0 ? Math.max(0, (dateRange.end !== dateRange.start ? Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24) + 1) : 1) - hadir) : 0
+      return { ...emp, hadir, telat, absen }
+    })
+  }, [employees, records, dateRange])
 
   return (
     <div>
@@ -213,6 +225,64 @@ function RingkasanTab() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      {/* Tabel Detail Kehadiran per Outlet */}
+      <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:20, padding:20, marginBottom:20 }}>
+        <p style={{ fontSize:10, fontWeight:700, color:t.textMuted, marginBottom:16, letterSpacing:1 }}>DETAIL KEHADIRAN PER OUTLET</p>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+            <thead>
+              <tr style={{ borderBottom:`1px solid ${t.border}` }}>
+                <th style={{ padding:12, textAlign:'left', color:t.textMuted, fontWeight:700 }}>OUTLET</th>
+                <th style={{ padding:12, textAlign:'center', color:t.accent, fontWeight:700 }}>HADIR</th>
+                <th style={{ padding:12, textAlign:'center', color:t.warn, fontWeight:700 }}>TELAT</th>
+                <th style={{ padding:12, textAlign:'center', color:t.danger, fontWeight:700 }}>ABSEN</th>
+                <th style={{ padding:12, textAlign:'center', color:t.text, fontWeight:700 }}>TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {outletStats.map((stat, idx) => (
+                <tr key={idx} style={{ borderBottom:`1px solid ${t.border}` }}>
+                  <td style={{ padding:12, color:t.text }}>{stat.name}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.accent, fontWeight:700 }}>{stat.hadir}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.warn, fontWeight:700 }}>{stat.telat}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.danger, fontWeight:700 }}>{stat.absen}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.text, fontWeight:700 }}>{stat.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tabel Detail Kehadiran Karyawan */}
+      <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:20, padding:20 }}>
+        <p style={{ fontSize:10, fontWeight:700, color:t.textMuted, marginBottom:16, letterSpacing:1 }}>DETAIL KEHADIRAN KARYAWAN</p>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:10 }}>
+            <thead>
+              <tr style={{ borderBottom:`1px solid ${t.border}` }}>
+                <th style={{ padding:12, textAlign:'left', color:t.textMuted, fontWeight:700 }}>NAMA KARYAWAN</th>
+                <th style={{ padding:12, textAlign:'left', color:t.textMuted, fontWeight:700 }}>OUTLET</th>
+                <th style={{ padding:12, textAlign:'center', color:t.accent, fontWeight:700 }}>HADIR</th>
+                <th style={{ padding:12, textAlign:'center', color:t.warn, fontWeight:700 }}>TELAT</th>
+                <th style={{ padding:12, textAlign:'center', color:t.danger, fontWeight:700 }}>ABSEN</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employeeStats.map((emp, idx) => (
+                <tr key={idx} style={{ borderBottom:`1px solid ${t.border}` }}>
+                  <td style={{ padding:12, color:t.text, fontWeight:600 }}>{emp.name}</td>
+                  <td style={{ padding:12, color:t.textMuted, fontSize:9 }}>{emp.outlets?.name || 'N/A'}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.accent, fontWeight:700 }}>{emp.hadir}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.warn, fontWeight:700 }}>{emp.telat}</td>
+                  <td style={{ padding:12, textAlign:'center', color:t.danger, fontWeight:700 }}>{emp.absen}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -544,9 +614,139 @@ function GajiTab() {
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
 
+  const downloadSlipGaji = async (emp) => {
+    try {
+      const { jsPDF } = await import('jspdf')
+      const html2canvas = (await import('html2canvas')).default
+      
+      const empRecs = records.filter(r => r.employee_id === emp.id)
+      const gaji = hitungGaji(emp, empRecs, dateRange.start, dateRange.end)
+      
+      // Create a temporary div to render the slip
+      const slipDiv = document.createElement('div')
+      slipDiv.style.width = '210mm'
+      slipDiv.style.padding = '20px'
+      slipDiv.style.background = '#fff'
+      slipDiv.style.color = '#000'
+      slipDiv.style.fontFamily = "'Space Mono',monospace"
+      
+      const slipHTML = `
+        <div style="padding: 20px; font-family: 'Space Mono', monospace; color: #000;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 15px;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 800;">SLIP GAJI</h1>
+            <p style="margin: 5px 0; font-size: 12px;">Periode: ${dateRange.start} s/d ${dateRange.end}</p>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <table style="width: 100%; font-size: 12px; line-height: 1.8;">
+              <tr>
+                <td style="width: 30%; font-weight: 700;">Nama Karyawan</td>
+                <td style="width: 70%;">: ${emp.name}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 700;">Kode Karyawan</td>
+                <td>: ${emp.emp_code || '-'}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 700;">Outlet</td>
+                <td>: ${emp.outlets?.name || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 700;">Jabatan</td>
+                <td>: ${emp.role || '-'}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="margin-bottom: 20px; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 15px 0;">
+            <h3 style="margin: 0 0 15px 0; font-size: 13px; font-weight: 700;">RINCIAN KEHADIRAN</h3>
+            <table style="width: 100%; font-size: 11px; line-height: 2;">
+              <tr>
+                <td style="width: 60%;">Hari Kerja</td>
+                <td style="text-align: right; width: 40%;">${gaji.hariKerja} hari</td>
+              </tr>
+              <tr>
+                <td>Hari Hadir</td>
+                <td style="text-align: right;">${gaji.hariHadir} hari</td>
+              </tr>
+              <tr>
+                <td>Hari Absen</td>
+                <td style="text-align: right;">${gaji.hariAbsen} hari</td>
+              </tr>
+              <tr>
+                <td>Jumlah Telat</td>
+                <td style="text-align: right;">${gaji.jumlahTelat}x</td>
+              </tr>
+              <tr>
+                <td>Hari Rajin</td>
+                <td style="text-align: right;">${gaji.jumlahRajin} hari</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 13px; font-weight: 700;">PERHITUNGAN GAJI</h3>
+            <table style="width: 100%; font-size: 11px; line-height: 2;">
+              <tr>
+                <td style="width: 60%;">Gaji Pokok</td>
+                <td style="text-align: right; width: 40%;">Rp ${Number(emp.gaji_pokok).toLocaleString('id-ID')}</td>
+              </tr>
+              <tr>
+                <td>Gaji Kotor</td>
+                <td style="text-align: right;">Rp ${Math.round(gaji.gajiKotor).toLocaleString('id-ID')}</td>
+              </tr>
+              ${gaji.potonganAbsen > 0 ? `<tr><td>Potongan Absen</td><td style="text-align: right; color: #d32f2f;">- Rp ${Math.round(gaji.potonganAbsen).toLocaleString('id-ID')}</td></tr>` : ''}
+              ${gaji.potonganTelat > 0 ? `<tr><td>Potongan Telat</td><td style="text-align: right; color: #d32f2f;">- Rp ${Math.round(gaji.potonganTelat).toLocaleString('id-ID')}</td></tr>` : ''}
+              ${gaji.bonusRajin > 0 ? `<tr><td>Bonus Rajin</td><td style="text-align: right; color: #00897b;">+ Rp ${Math.round(gaji.bonusRajin).toLocaleString('id-ID')}</td></tr>` : ''}
+            </table>
+          </div>
+          
+          <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; text-align: right;">
+            <p style="margin: 0; font-size: 12px; color: #666;">GAJI BERSIH</p>
+            <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: 800; color: #00897b;">Rp ${Math.round(gaji.gajiBersih).toLocaleString('id-ID')}</p>
+          </div>
+          
+          <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #999;">
+            <p style="margin: 0;">Dokumen ini dicetak otomatis oleh Sistem Absensi</p>
+            <p style="margin: 0;">${new Date().toLocaleString('id-ID')}</p>
+          </div>
+        </div>
+      `
+      
+      slipDiv.innerHTML = slipHTML
+      document.body.appendChild(slipDiv)
+      
+      const canvas = await html2canvas(slipDiv, {
+        scale: 2,
+        backgroundColor: '#fff',
+        logging: false,
+      })
+      
+      document.body.removeChild(slipDiv)
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+      
+      const imgData = canvas.toDataURL('image/png')
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pdfWidth - 10
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      
+      pdf.addImage(imgData, 'PNG', 5, 5, imgWidth, imgHeight)
+      pdf.save(`Slip_Gaji_${emp.name}_${dateRange.start}.pdf`)
+    } catch (err) {
+      console.error('Error generating PDF:', err)
+      alert('Gagal membuat PDF: ' + err.message)
+    }
+  }
+
   return (
     <div>
-      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>REKAP GAJI</p>
+      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>SLIP GAJI KARYAWAN</p>
       <div style={{ display:'flex', gap:10, marginBottom:20 }}>
         <input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
         <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
@@ -565,10 +765,17 @@ function GajiTab() {
                 </div>
                 <p style={{ fontSize:14, fontWeight:800, color:t.accent, margin:0 }}>{fmtRupiah(gaji.gajiBersih)}</p>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:10, color:t.textMuted }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, fontSize:10, color:t.textMuted, marginBottom:12 }}>
                 <p style={{ margin:0 }}>Hadir: {gaji.hariHadir}/{gaji.hariKerja} hari</p>
                 <p style={{ margin:0 }}>Telat: {gaji.jumlahTelat}x</p>
+                <p style={{ margin:0 }}>Absen: {gaji.hariAbsen} hari</p>
               </div>
+              <button 
+                onClick={() => downloadSlipGaji(emp)}
+                style={{ width:'100%', padding:10, borderRadius:8, background:t.accent, color:t.accentText, border:'none', fontWeight:700, fontSize:11, cursor:'pointer' }}
+              >
+                📥 UNDUH SLIP GAJI (PDF)
+              </button>
             </div>
           )
         })}
