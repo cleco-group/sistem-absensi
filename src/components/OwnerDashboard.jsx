@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useEmployees, useAttendance, useOutlets } from '../hooks/useData'
+import { useEmployees, useAttendance, useOutlets, useAuditLogs } from '../hooks/useData'
 import { monthRange, weekRange, fmtMonth, fmtRupiah, hitungGaji, getCurrentPosition, todayStr } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { DARK, LIGHT } from '../lib/themes'
@@ -50,7 +50,7 @@ export default function OwnerDashboard({ onLogout }) {
 
       {/* Tabs */}
       <div style={{ display:'flex', background:t.bgCard, borderBottom:`1px solid ${t.border}`, overflowX:'auto' }}>
-        {['ringkasan', 'karyawan', 'outlet', 'absensi', 'gaji'].map(id => (
+        {['ringkasan', 'karyawan', 'outlet', 'absensi', 'gaji', 'log'].map(id => (
           <button key={id} onClick={() => setTab(id)} style={{ flex:1, minWidth:100, padding:'14px 0', background:'none', border:'none', borderBottom:tab === id ? `2px solid ${t.accent}` : 'none', color:tab === id ? t.accent : t.textMuted, fontSize:10, fontWeight:tab === id ? 700 : 400, cursor:'pointer', letterSpacing:1 }}>{id.toUpperCase()}</button>
         ))}
       </div>
@@ -61,6 +61,7 @@ export default function OwnerDashboard({ onLogout }) {
         {tab === 'outlet' && <OutletTab />}
         {tab === 'absensi' && <AbsensiTab />}
         {tab === 'gaji' && <GajiTab />}
+        {tab === 'log' && <LogTab />}
       </div>
     </div>
   )
@@ -418,9 +419,31 @@ function OutletTab() {
 
 function AbsensiTab() {
   const [dateRange, setDateRange] = useState(monthRange())
-  const { records } = useAttendance(dateRange.start, dateRange.end)
+  const { records, updateAttendance } = useAttendance(dateRange.start, dateRange.end)
+  const { addLog } = useAuditLogs()
+  const [editData, setEditData] = useState(null)
   const { isDark } = useTheme()
   const t = isDark ? DARK : LIGHT
+
+  const handleUpdate = async (e) => {
+    e.preventDefault()
+    const fd = new FormData(e.target)
+    const data = Object.fromEntries(fd.entries())
+    try {
+      await updateAttendance(editData.id, data)
+      await addLog({
+        user_role: 'owner',
+        action: 'update',
+        table_name: 'attendance',
+        record_id: editData.id,
+        old_data: { jam_masuk: editData.jam_masuk, jam_pulang: editData.jam_pulang, status_masuk: editData.status_masuk },
+        new_data: data
+      })
+      setEditData(null)
+    } catch (err) {
+      alert('Gagal update: ' + err.message)
+    }
+  }
 
   const exportCSV = () => {
     const headers = ['Nama', 'Outlet', 'Tanggal', 'Jam Masuk', 'Status Masuk', 'Jam Pulang']
@@ -453,6 +476,35 @@ function AbsensiTab() {
         <input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} style={{ flex:1, padding:10, borderRadius:8, background:t.bgCard, border:`1px solid ${t.border}`, color:t.text, fontSize:11 }} />
       </div>
 
+      {editData && (
+        <div style={{ background:t.bgCard, border:`1px solid ${t.accent}`, borderRadius:16, padding:20, marginBottom:20 }}>
+          <p style={{ fontSize:11, fontWeight:700, color:t.accent, marginBottom:12 }}>EDIT ABSENSI: {editData.employees?.name}</p>
+          <form onSubmit={handleUpdate} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label style={{ fontSize:9, color:t.textMuted }}>JAM MASUK</label>
+                <input name="jam_masuk" type="time" defaultValue={editData.jam_masuk} style={{ width:'100%', padding:10, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              </div>
+              <div>
+                <label style={{ fontSize:9, color:t.textMuted }}>JAM PULANG</label>
+                <input name="jam_pulang" type="time" defaultValue={editData.jam_pulang} style={{ width:'100%', padding:10, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }} />
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize:9, color:t.textMuted }}>STATUS MASUK</label>
+              <select name="status_masuk" defaultValue={editData.status_masuk} style={{ width:'100%', padding:10, borderRadius:8, background:t.bg, border:`1px solid ${t.border}`, color:t.text }}>
+                <option value="tepat">Tepat Waktu</option>
+                <option value="telat">Terlambat</option>
+              </select>
+            </div>
+            <div style={{ display:'flex', gap:10, marginTop:10 }}>
+              <button type="button" onClick={() => setEditData(null)} style={{ flex:1, padding:12, borderRadius:8, background:'none', border:`1px solid ${t.border}`, color:t.text, fontSize:11 }}>BATAL</button>
+              <button type="submit" style={{ flex:2, padding:12, borderRadius:8, background:t.accent, color:t.accentText, border:'none', fontWeight:700, fontSize:11 }}>SIMPAN PERUBAHAN</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
         {records.map(r => (
           <div key={r.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:12, padding:12 }}>
@@ -461,7 +513,10 @@ function AbsensiTab() {
                 <p style={{ fontSize:12, fontWeight:700, margin:0 }}>{r.employees?.name}</p>
                 <p style={{ fontSize:9, color:t.textMuted, margin:0 }}>{r.employees?.outlets?.name || 'No Outlet'}</p>
               </div>
-              <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{r.tanggal}</p>
+              <div style={{ textAlign:'right' }}>
+                <p style={{ fontSize:10, color:t.textMuted, margin:0 }}>{r.tanggal}</p>
+                <button onClick={() => setEditData(r)} style={{ background:'none', border:'none', color:t.accent, fontSize:9, cursor:'pointer', padding:0, marginTop:4 }}>EDIT</button>
+              </div>
             </div>
             <div style={{ display:'flex', gap:10 }}>
               <div style={{ flex:1 }}>
@@ -517,6 +572,40 @@ function GajiTab() {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function LogTab() {
+  const { logs } = useAuditLogs()
+  const { isDark } = useTheme()
+  const t = isDark ? DARK : LIGHT
+
+  return (
+    <div>
+      <p style={{ color:t.accent, fontSize:11, fontWeight:700, marginBottom:20 }}>AUDIT LOG</p>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {logs.map(l => (
+          <div key={l.id} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:12, padding:12 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+              <span style={{ fontSize:10, fontWeight:700, color:t.accent }}>{l.action.toUpperCase()}</span>
+              <span style={{ fontSize:9, color:t.textMuted }}>{new Date(l.created_at).toLocaleString('id-ID')}</span>
+            </div>
+            <p style={{ fontSize:11, margin:'0 0 4px' }}>
+              <span style={{ color:t.textMuted }}>User:</span> {l.user_role} 
+              {l.user_id && ` (${l.user_id})`}
+            </p>
+            <p style={{ fontSize:11, margin:0 }}>
+              <span style={{ color:t.textMuted }}>Tabel:</span> {l.table_name}
+            </p>
+            {l.new_data && (
+              <div style={{ marginTop:8, padding:8, background:t.bg, borderRadius:6, fontSize:9, overflowX:'auto' }}>
+                <pre style={{ margin:0 }}>{JSON.stringify(l.new_data, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

@@ -148,7 +148,16 @@ export function useAttendance(dateStart, dateEnd) {
     await fetch()
   }
 
-  return { records, loading, refetch: fetch, upsertAttendance }
+  const updateAttendance = async (id, payload) => {
+    const { error } = await supabase
+      .from('attendance')
+      .update(payload)
+      .eq('id', id)
+    if (error) throw error
+    await fetch()
+  }
+
+  return { records, loading, refetch: fetch, upsertAttendance, updateAttendance }
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -179,4 +188,31 @@ export function useSettings() {
   }
 
   return { settings, loading, refetch: fetch, updateSettings }
+}
+
+// ─── Audit Logs ───────────────────────────────────────────────────────────────
+export function useAuditLogs() {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const fetch = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (!error) setLogs(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetch() }, [fetch])
+
+  const addLog = async (log) => {
+    const { error } = await supabase.from('audit_logs').insert(log)
+    if (error) throw error
+    await fetch()
+  }
+
+  return { logs, loading, refetch: fetch, addLog }
 }

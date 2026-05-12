@@ -96,3 +96,19 @@ on conflict do nothing;
 -- Aktifkan RLS untuk outlets
 alter table outlets enable row level security;
 create policy "allow_all_outlets" on outlets for all using (true) with check (true);
+
+-- 8. Tabel Audit Log
+create table if not exists audit_logs (
+  id          uuid primary key default gen_random_uuid(),
+  user_role   text not null, -- 'owner' | 'employee'
+  user_id     uuid,          -- ID karyawan jika employee, null jika owner
+  action      text not null, -- 'create' | 'update' | 'delete'
+  table_name  text not null,
+  record_id   uuid not null,
+  old_data    jsonb,
+  new_data    jsonb,
+  created_at  timestamptz default now()
+);
+
+alter table audit_logs enable row level security;
+create policy "allow_all_logs" on audit_logs for all using (true) with check (true);
